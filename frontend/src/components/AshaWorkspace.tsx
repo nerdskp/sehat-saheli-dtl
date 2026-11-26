@@ -22,7 +22,6 @@ import {
   Search,
   Send,
   ShieldCheck,
-  Stethoscope,
   UsersRound,
   X
 } from "lucide-react";
@@ -37,14 +36,13 @@ import {
   type CaseStatus
 } from "@/lib/api";
 
-type View = "queue" | "case" | "phc" | "households" | "guide";
+type View = "queue" | "case" | "households" | "guide";
 
 const copy = {
   en: {
     fieldCare: "Field care",
     queue: "Today’s queue",
     cases: "Care cases",
-    phc: "PHC handoffs",
     households: "Households",
     howItWorks: "How it works",
     signOut: "Sign out",
@@ -61,7 +59,6 @@ const copy = {
     fieldCare: "ಕ್ಷೇತ್ರ ಆರೈಕೆ",
     queue: "ಇಂದಿನ ಸರದಿ",
     cases: "ಆರೈಕೆ ಪ್ರಕರಣಗಳು",
-    phc: "PHC ಹಸ್ತಾಂತರಗಳು",
     households: "ಕುಟುಂಬಗಳು",
     howItWorks: "ಇದು ಹೇಗೆ ಕೆಲಸ ಮಾಡುತ್ತದೆ",
     signOut: "ಲಾಗ್ ಔಟ್",
@@ -91,7 +88,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
   const [view, setView] = useState<View>("queue");
   const [tasks, setTasks] = useState<CareTask[]>([]);
   const [selectedTask, setSelectedTask] = useState(0);
-  const [status, setStatus] = useState<CaseStatus | null>(null);
+  const [, setStatus] = useState<CaseStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [ashaProfile, setAshaProfile] = useState<AshaProfileResponse["profile"] | null>(null);
   const [patients, setPatients] = useState<AshaProfileResponse["patients"]>([]);
@@ -115,6 +112,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
   const [lang, setLang] = useState<"en" | "kn">("en");
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showNotifications, setShowNotifications] = useState(false);
   const [calendarMode, setCalendarMode] = useState(false);
   const t = copy[lang];
 
@@ -150,6 +148,20 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
   const activeTask = tasks[selectedTask] ?? tasks[0];
   const referralTask = tasks.find((task) => task.referralId);
   const focusTask = tasks.find((task) => task.referralStatus === "Awaiting PHC") ?? referralTask ?? tasks[0];
+  const alertTasks = tasks.filter((task) => task.alertFlagged && task.referralStatus !== "Follow-up booked");
+  const notificationCount = callbacks.length + alertTasks.length;
+  const filteredTasks = tasks
+    .filter((task) => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return true;
+      return `${task.name} ${task.context} ${task.ward} ${task.tag} ${task.severityLevel ?? ""}`.toLowerCase().includes(q);
+    })
+    .sort((a, b) => calendarMode ? (a.followUpDate ?? a.time).localeCompare(b.followUpDate ?? b.time) : 0);
+  const filteredPatients = patients.filter((patient) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return `${patient.fullName} ${patient.patientCode} ${patient.village}`.toLowerCase().includes(q);
+  });
 
   useEffect(() => {
     if (view !== "case" || !activeTask) return;
@@ -175,19 +187,6 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
 
   const openCase = (index = 0) => {
     setSelectedTask(index);
-    setView("case");
-  };
-
-  const markReceived = async () => {
-    const referralId = caseDetail?.referral?.id ?? referralTask?.referralId;
-    if (!referralId) return;
-    const referral = await careApi.acknowledgeReferral(token, referralId);
-    setStatus(referral.status);
-    await loadDashboard();
-    if (referralTask) {
-      const targetIndex = tasks.findIndex((task) => task.id === referralTask.id);
-      if (targetIndex >= 0) setSelectedTask(targetIndex);
-    }
     setView("case");
   };
 
@@ -289,7 +288,6 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
         <nav aria-label="Main navigation">
           <button className={view === "queue" ? "nav-item active" : "nav-item"} onClick={() => { setView("queue"); setShowMenu(false); }}><Home size={18} />{t.queue}</button>
           <button className={view === "case" ? "nav-item active" : "nav-item"} onClick={() => { setView("case"); setShowMenu(false); }}><ClipboardCheck size={18} />{t.cases}<span className="nav-count">{tasks.length}</span></button>
-          <button className={view === "phc" ? "nav-item active" : "nav-item"} onClick={() => { setView("phc"); setShowMenu(false); }}><Stethoscope size={18} />{t.phc}<span className="nav-count">{metrics.openReferrals}</span></button>
           <button className={view === "households" ? "nav-item active" : "nav-item"} onClick={() => { setView("households"); setShowMenu(false); }}><UsersRound size={18} />{t.households}<span className="nav-count">{patients.length}</span></button>
         </nav>
 
@@ -304,20 +302,105 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
       <section className="app-area">
         <header className="topbar">
           <button className="menu-button icon-button" onClick={() => setShowMenu(true)} aria-label="Open menu"><Menu size={22} /></button>
-          <div className="breadcrumbs"><span>{t.fieldCare}</span><ChevronRight size={14} /><strong>{view === "queue" ? t.queue : view === "case" ? t.cases : view === "phc" ? t.phc : view === "households" ? t.households : t.howItWorks}</strong></div>
-          <div className="top-actions">
+          <div className="breadcrumbs"><span>{t.fieldCare}</span><ChevronRight size={14} /><strong>{view === "queue" ? t.queue : view === "case" ? t.cases : view === "households" ? t.households : t.howItWorks}</strong></div>
+          <div className="top-actions" style={{ position: "relative" }}>
             {showSearch && (
               <input
+                autoFocus
                 value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); if (view !== "queue") setView("queue"); }}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (view !== "queue" && view !== "households") setView("queue");
+                }}
                 placeholder="Search patient, ward, symptom…"
                 aria-label="Search care cases"
-                style={{ height: 36, width: 210, borderRadius: 8, border: "1px solid #cfded7", padding: "0 10px", fontSize: 13 }}
+                style={{ height: 36, width: 210, borderRadius: 8, border: "1px solid #cfded7", padding: "0 10px", fontSize: 13, background: "white" }}
               />
             )}
-            <button className="icon-button" aria-label="Search" onClick={() => { setShowSearch((open) => !open); if (showSearch) setSearchQuery(""); else setView("queue"); }}><Search size={19} /></button>
-            <button className="icon-button notification" aria-label="Notifications" onClick={() => setView("queue")}><BellRing size={19} />{callbacks.length > 0 && <i />}</button>
-            <button className="new-case" onClick={() => { setView("queue"); setShowNewCase((open) => !open); }}><Plus size={18} />{t.newCase}</button>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Search"
+              onClick={() => {
+                setShowNotifications(false);
+                if (showSearch) {
+                  setShowSearch(false);
+                  setSearchQuery("");
+                } else {
+                  setShowSearch(true);
+                  if (view !== "queue" && view !== "households") setView("queue");
+                }
+              }}
+            >
+              {showSearch ? <X size={19} /> : <Search size={19} />}
+            </button>
+            <button
+              type="button"
+              className="icon-button notification"
+              aria-label="Notifications"
+              onClick={() => setShowNotifications((open) => !open)}
+            >
+              <BellRing size={19} />
+              {notificationCount > 0 && <i />}
+            </button>
+            <button className="new-case" onClick={() => { setShowNotifications(false); setView("queue"); setShowNewCase((open) => !open); }}><Plus size={18} />{t.newCase}</button>
+
+            {showNotifications && (
+              <div
+                className="panel"
+                style={{
+                  position: "absolute",
+                  top: 48,
+                  right: 0,
+                  width: 320,
+                  padding: 16,
+                  zIndex: 30,
+                  display: "grid",
+                  gap: 10
+                }}
+              >
+                <div className="panel-heading" style={{ alignItems: "center" }}>
+                  <div>
+                    <p className="eyebrow">NOTIFICATIONS ({notificationCount})</p>
+                    <h2 style={{ fontSize: 15 }}>Alerts &amp; callbacks</h2>
+                  </div>
+                  <button type="button" className="icon-button" onClick={() => setShowNotifications(false)} aria-label="Close notifications"><X size={16} /></button>
+                </div>
+                {notificationCount === 0 ? (
+                  <p className="empty-request" style={{ margin: 0 }}>None</p>
+                ) : (
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {alertTasks.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className="task-row"
+                        style={{ minHeight: 48, padding: "8px 4px" }}
+                        onClick={() => {
+                          setShowNotifications(false);
+                          openCase(tasks.findIndex((x) => x.id === item.id));
+                        }}
+                      >
+                        <div className="task-person">
+                          <strong>{item.name} · {item.severityLevel ?? "Alert"}</strong>
+                          <span>{item.context}</span>
+                        </div>
+                        <ChevronRight size={16} style={{ marginLeft: "auto" }} />
+                      </button>
+                    ))}
+                    {callbacks.map((cb) => (
+                      <div key={cb.id} className="task-row" style={{ minHeight: 48, padding: "8px 4px", cursor: "default" }}>
+                        <div className="task-person">
+                          <strong>{cb.patientName}</strong>
+                          <span>{cb.requestType} · {cb.village}</span>
+                        </div>
+                        <button type="button" className="text-button" style={{ marginLeft: "auto" }} onClick={() => markCallbackDone(cb.id)}>Done</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </header>
 
@@ -405,30 +488,23 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
               <section className="panel today-panel">
                 <div className="panel-heading"><div><p className="eyebrow">{calendarMode ? "SCHEDULE & FOLLOW-UPS" : "CARE ROUTE"}</p><h2>{calendarMode ? "Visit calendar" : t.todaysPeople}</h2></div><button className="text-button" onClick={() => setCalendarMode((m) => !m)}>{calendarMode ? t.showRoute : t.viewCalendar}</button></div>
                 <div className="task-list">
-                  {tasks.length === 0 ? (
+                  {filteredTasks.length === 0 ? (
                     <p className="empty-request" style={{ padding: "16px 0" }}>{loading ? "Loading…" : "None"}</p>
                   ) : (
-                    tasks
-                      .filter((task) => {
-                        const q = searchQuery.trim().toLowerCase();
-                        if (!q) return true;
-                        return `${task.name} ${task.context} ${task.ward} ${task.tag}`.toLowerCase().includes(q);
-                      })
-                      .sort((a, b) => calendarMode ? (a.followUpDate ?? a.time).localeCompare(b.followUpDate ?? b.time) : 0)
-                      .map((task) => {
-                        const origIndex = tasks.findIndex((item) => item.id === task.id);
-                        return (
-                          <button key={task.id} className="task-row" onClick={() => openCase(origIndex)}>
-                            <div className={`avatar avatar-${task.tone}`}>{task.initials}</div>
-                            <div className="task-person">
-                              <strong>{task.name} {task.source === "telegram" ? "· Telegram" : ""}</strong>
-                              <span>{task.context}{task.severityLevel ? ` · ${task.severityLevel} (${task.severityScore ?? "-"}/10)` : ""}</span>
-                            </div>
-                            <div className="task-meta"><em className={`tag tag-${task.tone}`}>{task.visitType === "follow-up" ? "Follow-up" : task.tag}</em><span>{calendarMode && task.followUpDate ? `Due ${task.followUpDate}` : task.time}</span></div>
-                            <ChevronRight className="row-chevron" size={19} />
-                          </button>
-                        );
-                      })
+                    filteredTasks.map((task) => {
+                      const origIndex = tasks.findIndex((item) => item.id === task.id);
+                      return (
+                        <button key={task.id} className="task-row" onClick={() => openCase(origIndex)}>
+                          <div className={`avatar avatar-${task.tone}`}>{task.initials}</div>
+                          <div className="task-person">
+                            <strong>{task.name} {task.source === "telegram" ? "· Telegram" : ""}</strong>
+                            <span>{task.context}{task.severityLevel ? ` · ${task.severityLevel} (${task.severityScore ?? "-"}/10)` : ""}</span>
+                          </div>
+                          <div className="task-meta"><em className={`tag tag-${task.tone}`}>{task.visitType === "follow-up" ? "Follow-up" : task.tag}</em><span>{calendarMode && task.followUpDate ? `Due ${task.followUpDate}` : task.time}</span></div>
+                          <ChevronRight className="row-chevron" size={19} />
+                        </button>
+                      );
+                    })
                   )}
                 </div>
                 <button className="add-visit" onClick={() => setShowNewCase(true)}><Plus size={17} />Add another visit or concern</button>
@@ -455,7 +531,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
               </aside>
             </div>
 
-            <div className="insight-strip"><div className="insight-icon"><MessageCircle size={18} /></div><p><strong>Care coordination live:</strong> Every Telegram &amp; ASHA intake updates Supabase and syncs to PHC in real time.</p><button onClick={() => setView("phc")}>See PHC handoffs <ArrowUpRight size={16} /></button></div>
+            <div className="insight-strip"><div className="insight-icon"><MessageCircle size={18} /></div><p><strong>Care coordination live:</strong> Every Telegram &amp; ASHA intake updates Supabase and syncs to the PHC doctor queue in real time.</p></div>
           </section>
         )}
 
@@ -508,7 +584,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                             <div><dt>From</dt><dd>{ashaProfile?.fullName ?? "ASHA"} · ASHA</dd></div>
                           </dl>
                           {caseDetail.referral.status === "Awaiting PHC" ? (
-                            <button className="outline-button" onClick={() => setView("phc")}>View PHC handoffs <ArrowUpRight size={16} /></button>
+                            <div className="received-note"><Clock3 size={16} />Awaiting review on /phc</div>
                           ) : (
                             <div className="received-note"><Check size={16} />PHC status: {caseDetail.referral.status}</div>
                           )}
@@ -541,22 +617,6 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
           </section>
         )}
 
-        {view === "phc" && (
-          <section className="content phc-view">
-            <div className="page-heading"><div><p className="eyebrow">FACILITY HANDOFFS</p><h1>PHC referrals</h1><p className="subheading">Referrals sent from field visits.</p></div><div className="loop-chip"><Stethoscope size={17} /><span>{metrics.openReferrals} awaiting PHC</span></div></div>
-            <div className="phc-grid">
-              <section className="panel incoming-panel"><div className="panel-heading"><div><p className="eyebrow">INCOMING</p><h2>Referral queue</h2></div><span className="queue-number">{String(metrics.openReferrals).padStart(2, "0")}</span></div>
-                {referralTask ? (
-                  <article className="referral-card"><div className="referral-top"><div className={`avatar avatar-${referralTask.tone}`}>{referralTask.initials}</div><div><strong>{referralTask.name}</strong><span>{referralTask.ageLabel} · {referralTask.context}</span></div>{referralTask.referralStatus && <StatusPill status={referralTask.referralStatus} />}</div><div className="referral-details"><p><MapPin size={16} />{referralTask.ward}</p><p><Clock3 size={16} />{referralTask.time}</p></div><div className="referral-reason"><span>TRIAGE SUMMARY</span><p>{referralTask.triageSummary ?? referralTask.context}</p></div>{referralTask.referralStatus === "Awaiting PHC" ? <button className="primary-button" onClick={markReceived}><Check size={17} />Acknowledge referral</button> : <button className="outline-button" onClick={() => openCase(tasks.findIndex((t) => t.id === referralTask.id))}>Open care timeline <ArrowUpRight size={16} /></button>}</article>
-                ) : (
-                  <p className="empty-request">None</p>
-                )}
-              </section>
-              <aside className="panel system-card"><div className="system-icon"><Activity size={22} /></div><p className="eyebrow">DOCTOR QUEUE</p><h2>Severity-ranked on /phc</h2><p>Doctors sign in to <code>/phc</code> to see all incoming cases ordered by Gemini urgency score.</p><div className="system-steps"><span><Check size={15} />ASHA / Telegram logs visit</span><span><Check size={15} />Gemini ranks severity</span><span><Clock3 size={15} />PHC &amp; follow-up close loop</span></div></aside>
-            </div>
-          </section>
-        )}
-
         {view === "households" && (
           <section className="content queue-view">
             <div className="page-heading">
@@ -568,10 +628,10 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
             </div>
             <section className="panel today-panel" style={{ marginTop: 22 }}>
               <div className="task-list" style={{ marginTop: 0 }}>
-                {patients.length === 0 ? (
+                {filteredPatients.length === 0 ? (
                   <p className="empty-request">None</p>
                 ) : (
-                  patients.map((patient) => (
+                  filteredPatients.map((patient) => (
                     <div key={patient.id} className="task-row" style={{ cursor: "default" }}>
                       <div className="avatar avatar-blue">{patient.fullName.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase()}</div>
                       <div className="task-person">
