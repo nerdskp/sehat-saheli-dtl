@@ -87,7 +87,7 @@ function StatusPill({ status }: { status: CaseStatus }) {
 export default function AshaWorkspace({ token, onSignOut }: { token: string; onSignOut: () => void }) {
   const [view, setView] = useState<View>("queue");
   const [tasks, setTasks] = useState<CareTask[]>([]);
-  const [selectedTask, setSelectedTask] = useState(0);
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
   const [, setStatus] = useState<CaseStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [ashaProfile, setAshaProfile] = useState<AshaProfileResponse["profile"] | null>(null);
@@ -145,7 +145,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
     };
   }, [token]);
 
-  const activeTask = tasks[selectedTask] ?? tasks[0];
+  const activeTask = (selectedCaseId ? tasks.find((task) => task.id === selectedCaseId) : undefined) ?? tasks[0];
   const referralTask = tasks.find((task) => task.referralId);
   const focusTask = tasks.find((task) => task.referralStatus === "Awaiting PHC") ?? referralTask ?? tasks[0];
   const alertTasks = tasks.filter((task) => task.alertFlagged && task.referralStatus !== "Follow-up booked");
@@ -185,8 +185,8 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
     };
   }, [token, view, activeTask?.id, activeTask?.action]);
 
-  const openCase = (index = 0) => {
-    setSelectedTask(index);
+  const openCase = (caseId: string) => {
+    setSelectedCaseId(caseId);
     setView("case");
   };
 
@@ -226,7 +226,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
         setNewContext("");
         if (result.credentials) setNewCreds({ ...result.credentials, name: result.careCase.name });
         setCaseDetail(result.careCase);
-        setSelectedTask(0);
+        setSelectedCaseId(result.careCase.id);
         setView("case");
         return;
       }
@@ -236,7 +236,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
       setShowNewCase(false);
       setNewContext("");
       setCaseDetail(created);
-      setSelectedTask(0);
+      setSelectedCaseId(created.id);
       setView("case");
     } catch (err) {
       setIntakeError(err instanceof Error ? err.message : "Could not record visit");
@@ -378,7 +378,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                         style={{ minHeight: 48, padding: "8px 4px" }}
                         onClick={() => {
                           setShowNotifications(false);
-                          openCase(tasks.findIndex((x) => x.id === item.id));
+                          openCase(item.id);
                         }}
                       >
                         <div className="task-person">
@@ -491,20 +491,17 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                   {filteredTasks.length === 0 ? (
                     <p className="empty-request" style={{ padding: "16px 0" }}>{loading ? "Loading…" : "None"}</p>
                   ) : (
-                    filteredTasks.map((task) => {
-                      const origIndex = tasks.findIndex((item) => item.id === task.id);
-                      return (
-                        <button key={task.id} className="task-row" onClick={() => openCase(origIndex)}>
-                          <div className={`avatar avatar-${task.tone}`}>{task.initials}</div>
-                          <div className="task-person">
-                            <strong>{task.name} {task.source === "telegram" ? "· Telegram" : ""}</strong>
-                            <span>{task.context}{task.severityLevel ? ` · ${task.severityLevel} (${task.severityScore ?? "-"}/10)` : ""}</span>
-                          </div>
-                          <div className="task-meta"><em className={`tag tag-${task.tone}`}>{task.visitType === "follow-up" ? "Follow-up" : task.tag}</em><span>{calendarMode && task.followUpDate ? `Due ${task.followUpDate}` : task.time}</span></div>
-                          <ChevronRight className="row-chevron" size={19} />
-                        </button>
-                      );
-                    })
+                    filteredTasks.map((task) => (
+                      <button key={task.id} className="task-row" onClick={() => openCase(task.id)}>
+                        <div className={`avatar avatar-${task.tone}`}>{task.initials}</div>
+                        <div className="task-person">
+                          <strong>{task.name} {task.source === "telegram" ? "· Telegram" : ""}</strong>
+                          <span>{task.context}{task.severityLevel ? ` · ${task.severityLevel} (${task.severityScore ?? "-"}/10)` : ""}</span>
+                        </div>
+                        <div className="task-meta"><em className={`tag tag-${task.tone}`}>{task.visitType === "follow-up" ? "Follow-up" : task.tag}</em><span>{calendarMode && task.followUpDate ? `Due ${task.followUpDate}` : task.time}</span></div>
+                        <ChevronRight className="row-chevron" size={19} />
+                      </button>
+                    ))
                   )}
                 </div>
                 <button className="add-visit" onClick={() => setShowNewCase(true)}><Plus size={17} />Add another visit or concern</button>
@@ -523,7 +520,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                       <span className={focusTask.referralStatus === "Follow-up booked" ? "complete" : ""} />
                     </div>
                     <div className="timeline-labels"><span>Recorded</span><span>Sent</span><span>PHC</span><span>Follow-up</span></div>
-                    <button className="primary-button" onClick={() => openCase(tasks.findIndex((item) => item.id === focusTask.id))}>Open care case <ChevronRight size={17} /></button>
+                    <button className="primary-button" onClick={() => openCase(focusTask.id)}>Open care case <ChevronRight size={17} /></button>
                   </>
                 ) : (
                   <p style={{ opacity: 0.85, marginTop: 18 }}>None</p>
@@ -546,24 +543,71 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
               </section>
             ) : (
               <>
+                {tasks.length > 1 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
+                    {tasks.map((task) => (
+                      <button
+                        key={task.id}
+                        type="button"
+                        className={task.id === activeTask.id ? "choice selected" : "choice"}
+                        onClick={() => openCase(task.id)}
+                      >
+                        {task.name} · {task.severityLevel ?? task.tag} ({task.severityScore ?? "-"}/10)
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="case-heading">
-                  <div className="case-person"><div className={`avatar avatar-${activeTask.tone} large`}>{activeTask.initials}</div><div><p className="eyebrow">CARE CASE · {activeTask.visitType === "follow-up" ? "FOLLOW-UP" : "FRESH VISIT"}</p><h1>{activeTask.name}</h1><span>{activeTask.ageLabel} · {activeTask.ward} · {activeTask.context}{activeTask.aadhaarMasked ? ` · Aadhaar ${activeTask.aadhaarMasked}` : ""}</span></div></div>
+                  <div className="case-person"><div className={`avatar avatar-${activeTask.tone} large`}>{activeTask.initials}</div><div><p className="eyebrow">PERSONAL CARE CARD · {activeTask.visitType === "follow-up" ? "FOLLOW-UP" : "FRESH VISIT"}</p><h1>{activeTask.name}</h1><span>{activeTask.ageLabel} · {activeTask.ward} · {activeTask.context}{activeTask.aadhaarMasked ? ` · Aadhaar ${activeTask.aadhaarMasked}` : ""}</span></div></div>
                   {(caseDetail?.referral?.status ?? activeTask.referralStatus)
                     ? <StatusPill status={caseDetail?.referral?.status ?? activeTask.referralStatus!} />
                     : <span className={`tag tag-${activeTask.tone}`}>{activeTask.tag}</span>}
                 </div>
                 <div className="case-grid">
-                  <section className="panel conversation-panel">
-                    <div className="conversation-title"><div><MessageCircle size={19} /><strong>Visit &amp; triage summary</strong></div><span>{activeTask.source === "telegram" ? "Telegram intake" : "Web record"}</span></div>
-                    <div className="messages">
-                      <div className="message bot">Reported concern: {activeTask.context}<span>{activeTask.time}</span></div>
-                      <div className="message worker">Gemini triage: {activeTask.triageSummary ?? "None"}{activeTask.severityLevel ? ` (${activeTask.severityLevel} · ${activeTask.severityScore ?? "-"}/10)` : ""}<span>{activeTask.severityLevel ?? "—"}</span></div>
-                      <div className="choice-grid">
-                        {careActions.map(choice => <button key={choice} className={answer === choice ? "choice selected" : "choice"} onClick={() => selectAction(choice)}>{answer === choice && <Check size={15} />}{choice}</button>)}
+                  <section className="panel" style={{ padding: 24, display: "grid", gap: 18, alignContent: "start" }}>
+                    <div className="card-heading">
+                      <div>
+                        <p className="eyebrow">INDIVIDUAL PATIENT TRIAGE</p>
+                        <h2>{activeTask.name}&apos;s assessment</h2>
                       </div>
-                      {answer && <div className="message worker chosen">Next step: {answer}.<span>Saved</span></div>}
+                      <span className={`tag tag-${activeTask.tone}`}>
+                        {activeTask.severityLevel ?? "Unscored"} · {activeTask.severityScore ?? "-"}/10
+                      </span>
                     </div>
-                    <div className="case-disclaimer"><ShieldCheck size={16} />Coordination tool only — follow approved clinical protocols.</div>
+
+                    <div style={{ display: "grid", gap: 12, padding: 16, borderRadius: 12, background: activeTask.alertFlagged ? "#fff5f3" : "#f6faf8", border: `1px solid ${activeTask.alertFlagged ? "#f2b8ad" : "#dce9e3"}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#627e76" }}>
+                        <span>Source: <strong>{activeTask.source === "telegram" ? "Telegram" : "Web"}</strong></span>
+                        <span>Recorded: <strong>{activeTask.time}</strong></span>
+                      </div>
+                      <div>
+                        <p className="eyebrow" style={{ marginBottom: 4 }}>REPORTED CONCERN</p>
+                        <strong style={{ fontSize: 15 }}>{activeTask.context}</strong>
+                      </div>
+                      <div>
+                        <p className="eyebrow" style={{ marginBottom: 4 }}>PERSONAL TRIAGE SUMMARY</p>
+                        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: "#2d4c45" }}>{activeTask.triageSummary ?? "None"}</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="eyebrow" style={{ marginBottom: 8 }}>AGREED NEXT STEP</p>
+                      <div className="choice-grid" style={{ marginLeft: 0 }}>
+                        {careActions.map((choice) => (
+                          <button
+                            key={choice}
+                            type="button"
+                            className={answer === choice ? "choice selected" : "choice"}
+                            onClick={() => selectAction(choice)}
+                          >
+                            {answer === choice && <Check size={15} />}
+                            {choice}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="case-disclaimer" style={{ borderRadius: 10 }}><ShieldCheck size={16} />Coordination tool only — follow approved clinical protocols.</div>
                   </section>
 
                   <aside className="case-side">

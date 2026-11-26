@@ -440,6 +440,7 @@ export const careStore = {
 
   async acknowledgeReferral(referralId: string) {
     const referral = await getReferralOrThrow(referralId);
+    if (referral.status !== "Awaiting PHC") return referral;
     const ackAt = timeNow();
     const { error } = await supabase
       .from("referrals")
