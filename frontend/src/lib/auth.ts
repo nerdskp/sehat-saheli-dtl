@@ -1,4 +1,4 @@
-export type AppRole = "asha" | "patient";
+export type AppRole = "asha" | "patient" | "phc";
 
 export interface AppSession {
   token: string;

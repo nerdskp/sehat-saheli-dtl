@@ -8,15 +8,25 @@ import { saveSession } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("sunita.asha");
-  const [password, setPassword] = useState("demo123");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [selectedRole, setSelectedRole] = useState<"asha" | "phc" | "patient" | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const selectDemo = (demoUsername: string) => {
-    setUsername(demoUsername);
-    setPassword("demo123");
+  const selectRole = (role: "asha" | "phc" | "patient") => {
+    setSelectedRole(role);
     setError("");
+    if (role === "asha") {
+      setUsername("sunita.asha");
+      setPassword("demo123");
+    } else if (role === "phc") {
+      setUsername("dr.phc");
+      setPassword("demo123");
+    } else {
+      setUsername("");
+      setPassword("");
+    }
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -26,7 +36,7 @@ export default function LoginPage() {
     try {
       const session = await careApi.login(username, password);
       saveSession(session);
-      router.push(session.user.role === "asha" ? "/asha" : "/patient");
+      router.push(session.user.role === "asha" ? "/asha" : session.user.role === "phc" ? "/phc" : "/patient");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message.replace("API request failed (401)", "The login details do not match") : "Could not sign in");
     } finally {
@@ -46,16 +56,17 @@ export default function LoginPage() {
       <section className="auth-panel">
         <div className="auth-form-wrap"><p className="eyebrow">SECURE DEMO ACCESS</p><h2>Welcome back</h2><p className="auth-subtitle">Choose a demo profile or sign in with the account details provided.</p>
           <div className="demo-choices">
-            <button type="button" className={username === "sunita.asha" ? "demo-choice selected" : "demo-choice"} onClick={() => selectDemo("sunita.asha")}><span className="choice-icon asha"><Stethoscope size={17} /></span><span><strong>ASHA worker</strong><small>Sunita M. · field workspace</small></span></button>
-            <button type="button" className={username === "ramesh.patient" ? "demo-choice selected" : "demo-choice"} onClick={() => selectDemo("ramesh.patient")}><span className="choice-icon patient"><UserRound size={17} /></span><span><strong>Patient</strong><small>Ramesh Kumar · care portal</small></span></button>
+            <button type="button" className={selectedRole === "asha" ? "demo-choice selected" : "demo-choice"} onClick={() => selectRole("asha")}><span className="choice-icon asha"><Stethoscope size={17} /></span><span><strong>ASHA worker</strong><small>Sign in to /asha workspace</small></span></button>
+            <button type="button" className={selectedRole === "phc" ? "demo-choice selected" : "demo-choice"} onClick={() => selectRole("phc")}><span className="choice-icon asha"><HeartPulse size={17} /></span><span><strong>PHC doctor</strong><small>Sign in to /phc queue</small></span></button>
+            <button type="button" className={selectedRole === "patient" ? "demo-choice selected" : "demo-choice"} onClick={() => selectRole("patient")}><span className="choice-icon patient"><UserRound size={17} /></span><span><strong>Patient</strong><small>Enter portal credentials</small></span></button>
           </div>
           <form onSubmit={submit}>
-            <label>Username<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
-            <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
+            <label>Username<input value={username} onChange={(event) => setUsername(event.target.value)} placeholder={selectedRole === "patient" ? "e.g. satvik" : "Enter username"} autoComplete="username" required /></label>
+            <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder={selectedRole === "patient" ? "e.g. SAT1234" : "Enter password"} autoComplete="current-password" required /></label>
             {error && <p className="auth-error">{error}</p>}
             <button className="auth-submit" disabled={loading}>{loading ? "Signing in…" : <><LockKeyhole size={17} />Sign in securely</>}</button>
           </form>
-          <p className="demo-note"><strong>Demo password:</strong> demo123</p>
+          <p className="demo-note">Staff accounts: <code>sunita.asha</code> / <code>dr.phc</code> (<code>demo123</code>) · Patients use Telegram-issued credentials.</p>
         </div>
       </section>
     </main>
