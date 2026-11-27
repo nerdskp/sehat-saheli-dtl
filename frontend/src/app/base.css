@@ -1,0 +1,65 @@
+html,
+body {
+  overflow-x: clip;
+}
+
+html {
+  scrollbar-color: var(--color-muted) var(--color-paper);
+  scroll-padding-top: 24px;
+}
+
+::selection {
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+}
+
+.asha-workspace,
+.asha-workspace * {
+  box-sizing: border-box;
+}
+
+.asha-workspace {
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  caret-color: var(--color-accent);
+  -webkit-font-smoothing: antialiased;
+}
+
+.asha-workspace :focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.asha-workspace h1,
+.asha-workspace h2,
+.asha-workspace h3 {
+  min-width: 0;
+  overflow-wrap: break-word;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-synthesis: none;
+  letter-spacing: -0.02em;
+  line-height: 1.18;
+  text-wrap: balance;
+}
+
+.asha-workspace button,
+.asha-workspace input,
+.asha-workspace select,
+.asha-workspace textarea {
+  font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .asha-workspace *,
+  .asha-workspace *::before,
+  .asha-workspace *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+

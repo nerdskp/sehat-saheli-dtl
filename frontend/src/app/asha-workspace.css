@@ -1,0 +1,757 @@
+/* Hallmark · shape: app screen · genre: modern-minimal (inferred) · theme: brand · redesign: full
+ * paper: #f4f6f3 · accent: #17645b · display: Arial, Helvetica, sans-serif · body: Arial, Helvetica, sans-serif
+ * nav: soft fixed sidebar · signature: live care queue and next step · states: loading, empty, success
+ * axes: light/rounded-sans/cool · posture: app shell · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H5 E4 S5 R4 V3 · weakest: V, queue and task table are familiar app patterns; varied their weight through one clear priority panel and a quieter count row */
+/* Hallmark · dismissed 70 · Referral status comes from the server-loaded caseDetail, not a local success message. */
+.asha-workspace .sidebar {
+  width: 256px;
+  padding: 24px 16px;
+  background: var(--color-sidebar);
+  color: var(--color-ink);
+  border-right: 1px solid var(--color-rule);
+}
+
+.asha-workspace .brand {
+  gap: 12px;
+  padding: 0 8px 24px;
+}
+
+.asha-workspace .brand-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+
+.asha-workspace .brand strong {
+  font-size: 17px;
+  letter-spacing: 0;
+}
+
+.asha-workspace .brand span,
+.asha-workspace .profile-card span,
+.asha-workspace .muted,
+.asha-workspace .privacy-note {
+  color: var(--color-ink-2);
+}
+
+.asha-workspace .brand span,
+.asha-workspace .profile-card span {
+  font-size: 14px;
+}
+
+.asha-workspace .profile-card {
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 24px;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-control);
+  background: var(--color-paper-raised);
+}
+
+.asha-workspace .profile-card strong {
+  font-size: 15px;
+}
+
+.asha-workspace .profile-card svg {
+  color: var(--color-ink-2);
+}
+
+.asha-workspace .avatar {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.asha-workspace .avatar-dark {
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+}
+
+.asha-workspace nav {
+  gap: 8px;
+}
+
+.asha-workspace .nav-item {
+  min-height: 46px;
+  padding-inline: 12px;
+  border-radius: var(--radius-control);
+  color: var(--color-ink-2);
+  font-size: 15px;
+  gap: 12px;
+}
+
+.asha-workspace .nav-item:hover,
+.asha-workspace .nav-item.active {
+  color: var(--color-ink);
+  background: var(--color-sidebar-active);
+}
+
+.asha-workspace .nav-count {
+  width: auto;
+  min-width: 28px;
+  height: 28px;
+  padding-inline: 8px;
+  border-radius: var(--radius-pill);
+  color: var(--color-ink);
+  background: var(--color-paper-raised);
+  font-size: 14px;
+}
+
+.asha-workspace .sidebar-bottom {
+  gap: 4px;
+}
+
+.asha-workspace .sidebar-bottom .nav-item {
+  white-space: nowrap;
+}
+
+.asha-workspace .signout-nav {
+  margin-top: 8px;
+  color: var(--color-ink-2);
+  background: transparent;
+}
+
+.asha-workspace .privacy-note {
+  padding: 16px 12px 0;
+  font-size: 14px;
+}
+
+.asha-workspace .app-area {
+  width: calc(100% - 256px);
+  margin-left: 256px;
+}
+
+.asha-workspace .topbar {
+  min-height: 72px;
+  padding-inline: clamp(24px, 4vw, 56px);
+  border-bottom-color: var(--color-rule);
+  background: var(--color-paper-raised);
+  backdrop-filter: none;
+}
+
+.asha-workspace .breadcrumbs {
+  gap: 12px;
+  color: var(--color-ink-2);
+  font-size: 15px;
+}
+
+.asha-workspace .breadcrumbs strong {
+  color: var(--color-ink);
+}
+
+.asha-workspace .icon-button {
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--color-ink);
+}
+
+.asha-workspace .icon-button:hover {
+  background: var(--color-paper-2);
+}
+
+.asha-workspace .content {
+  width: min(100%, 1520px);
+  padding: 40px clamp(24px, 4vw, 56px) 56px;
+}
+
+.asha-workspace .page-heading {
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.asha-workspace .page-heading h1,
+.asha-workspace .case-heading h1 {
+  margin: 4px 0 8px;
+  font-size: clamp(30px, 3vw, 40px);
+  line-height: 1.12;
+}
+
+.asha-workspace .subheading {
+  max-width: 62ch;
+  color: var(--color-ink-2);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.asha-workspace .section-label {
+  margin: 0;
+  color: var(--color-ink-2);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.asha-workspace .section-label:first-child {
+  text-transform: capitalize;
+}
+
+.asha-workspace .loop-chip {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--color-warning-edge);
+  border-radius: var(--radius-pill);
+  color: var(--color-ink);
+  background: var(--color-soft-mint);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.asha-workspace .metric-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 0 0 28px;
+  border-top: 1px solid var(--color-rule);
+  border-bottom: 1px solid var(--color-rule);
+  background: transparent;
+}
+
+.asha-workspace .metric-card {
+  min-height: 104px;
+  padding: 16px 24px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.asha-workspace .metric-card + .metric-card {
+  border-left: 1px solid var(--color-rule);
+}
+
+.asha-workspace .metric-card::after {
+  display: none;
+}
+
+.asha-workspace .metric-card > div > span {
+  color: var(--color-ink-2);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.asha-workspace .metric-card strong {
+  margin: 4px 0;
+  color: var(--color-ink);
+  font-size: 34px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.12;
+}
+
+.asha-workspace .metric-card small {
+  color: var(--color-ink-2);
+  font-size: 14px;
+}
+
+.asha-workspace .metric-card > svg {
+  align-self: center;
+  color: var(--color-accent);
+}
+
+.asha-workspace .metric-card.coral,
+.asha-workspace .metric-card.amber,
+.asha-workspace .metric-card.teal {
+  background: transparent;
+}
+
+.asha-workspace .queue-layout {
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.85fr);
+  gap: 24px;
+}
+
+.asha-workspace .panel {
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-raised);
+  box-shadow: var(--shadow-card);
+}
+
+.asha-workspace .today-panel {
+  padding: 24px;
+}
+
+.asha-workspace .panel-heading h2,
+.asha-workspace .card-heading h2 {
+  font-size: 22px;
+  line-height: 1.22;
+}
+
+.asha-workspace .text-button {
+  min-height: 44px;
+  padding-inline: 12px;
+  color: var(--color-accent);
+  font-size: 15px;
+}
+
+.asha-workspace .task-list {
+  margin-top: 16px;
+}
+
+.asha-workspace .task-row {
+  min-height: 82px;
+  gap: 16px;
+  padding: 12px 4px;
+  color: var(--color-ink);
+  border-top-color: var(--color-rule);
+}
+
+.asha-workspace .task-row:hover {
+  background: var(--color-row-hover);
+}
+
+.asha-workspace .task-person strong {
+  font-size: 16px;
+}
+
+.asha-workspace .task-person span {
+  color: var(--color-ink-2);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.asha-workspace .task-meta span {
+  color: var(--color-ink-2);
+  font-size: 14px;
+}
+
+.asha-workspace .tag {
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.asha-workspace .tag-urgent {
+  background: var(--color-urgent-paper);
+  color: var(--color-urgent-ink);
+}
+
+.asha-workspace .tag-warm {
+  background: var(--color-warning-paper);
+  color: var(--color-warning);
+}
+
+.asha-workspace .tag-blue {
+  background: var(--color-blue-paper);
+  color: var(--color-blue-ink);
+}
+
+.asha-workspace .tag-violet {
+  background: var(--color-violet-paper);
+  color: var(--color-violet-ink);
+}
+
+.asha-workspace .row-chevron {
+  color: var(--color-ink-2);
+}
+
+.asha-workspace .add-visit {
+  min-height: 48px;
+  margin-top: 16px;
+  border-color: var(--color-muted);
+  border-radius: var(--radius-control);
+  color: var(--color-accent);
+  background: transparent;
+  font-size: 15px;
+}
+
+.asha-workspace .add-visit:hover {
+  background: var(--color-paper-3);
+}
+
+.asha-workspace .focus-panel {
+  align-self: start;
+  min-height: 0;
+  padding: 24px;
+  border-color: var(--color-focus-edge);
+  color: var(--color-ink);
+  background: var(--color-focus-fill);
+  box-shadow: none;
+}
+
+.asha-workspace .focus-panel h2 {
+  color: var(--color-ink);
+}
+
+.asha-workspace .focus-avatar {
+  gap: 12px;
+  margin: 24px 0 16px;
+}
+
+.asha-workspace .focus-avatar strong {
+  font-size: 17px;
+}
+
+.asha-workspace .focus-avatar span {
+  color: var(--color-ink-2);
+  font-size: 14px;
+}
+
+.asha-workspace .focus-callout {
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--color-ink);
+  background: transparent;
+}
+
+.asha-workspace .focus-callout svg {
+  color: var(--color-accent);
+}
+
+.asha-workspace .focus-callout p {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.asha-workspace .focus-callout strong {
+  color: var(--color-ink);
+}
+
+.asha-workspace .mini-timeline {
+  background: var(--color-timeline);
+}
+
+.asha-workspace .mini-timeline span {
+  background: var(--color-timeline);
+}
+
+.asha-workspace .mini-timeline .complete {
+  background: var(--color-timeline-done);
+}
+
+.asha-workspace .mini-timeline .pending {
+  background: var(--color-accent);
+  box-shadow: 0 0 0 4px var(--color-timeline-halo);
+}
+
+.asha-workspace .timeline-labels {
+  color: var(--color-ink-2);
+  font-size: 14px;
+}
+
+.asha-workspace .primary-button {
+  min-height: 46px;
+  padding-inline: 16px;
+  border-radius: var(--radius-control);
+  color: var(--color-accent-ink);
+  background: var(--color-accent);
+  font-size: 15px;
+  transition: background-color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out);
+}
+
+.asha-workspace .primary-button:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+.asha-workspace .new-case {
+  min-height: 44px;
+  padding-inline: 12px;
+  border: 1px solid var(--color-muted);
+  border-radius: var(--radius-control);
+  color: var(--color-accent);
+  background: transparent;
+  font-size: 15px;
+  transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out);
+}
+
+.asha-workspace .new-case:hover {
+  color: var(--color-ink);
+  background: var(--color-paper-2);
+}
+
+.asha-workspace button:active {
+  transform: translateY(1px);
+}
+
+.asha-workspace button:disabled,
+.asha-workspace button[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.asha-workspace .primary-button:disabled,
+.asha-workspace .new-case:disabled {
+  background: var(--color-accent);
+}
+
+.asha-workspace .insight-strip {
+  min-height: 64px;
+  margin-top: 24px;
+  padding: 16px;
+  border-color: var(--color-focus-edge);
+  border-radius: var(--radius-control);
+  color: var(--color-ink);
+  background: var(--color-focus-fill);
+}
+
+.asha-workspace .insight-icon {
+  color: var(--color-accent);
+  background: var(--color-soft-mint);
+}
+
+.asha-workspace .insight-strip p {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.asha-workspace .insight-strip p strong {
+  color: var(--color-ink);
+}
+
+.asha-workspace .case-heading,
+.asha-workspace .case-grid,
+.asha-workspace .case-side {
+  gap: 24px;
+}
+
+.asha-workspace .case-person span,
+.asha-workspace .handoff-card dd,
+.asha-workspace .event p,
+.asha-workspace .message,
+.asha-workspace .case-disclaimer,
+.asha-workspace .received-note,
+.asha-workspace .empty-request,
+.asha-workspace .care-plan > p {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.asha-workspace .choice,
+.asha-workspace .outline-button,
+.asha-workspace .back-button,
+.asha-workspace .status {
+  min-height: 44px;
+  font-size: 14px;
+}
+
+.asha-workspace .auth-form-wrap input,
+.asha-workspace input,
+.asha-workspace select,
+.asha-workspace textarea {
+  min-height: 44px;
+  font-size: 16px;
+}
+
+.asha-workspace :where(button, input, select, textarea):focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.asha-workspace .section-label,
+.asha-workspace .metric-card > div > span,
+.asha-workspace .referral-reason span,
+.asha-workspace .profile-card-patient dt {
+  color: var(--color-ink-2);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.asha-workspace .panel-heading,
+.asha-workspace .card-heading {
+  align-items: center;
+}
+
+.asha-workspace .panel-heading > svg,
+.asha-workspace .card-heading > svg {
+  color: var(--color-accent);
+}
+
+.asha-workspace .notification i {
+  display: none;
+}
+
+.asha-workspace .status-amber {
+  color: var(--color-warning);
+  background: var(--color-warning-paper);
+}
+
+.asha-workspace .status-blue {
+  color: var(--color-blue-ink);
+  background: var(--color-blue-paper);
+}
+
+.asha-workspace .status-green {
+  color: var(--color-green-ink);
+  background: var(--color-green-paper);
+}
+
+.asha-workspace .visit-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(100px, 0.55fr) minmax(0, 1.2fr) minmax(0, 1.6fr);
+  gap: 12px;
+}
+
+.asha-workspace .visit-fields-existing {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
+}
+
+.asha-workspace .visit-fields label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  color: var(--color-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.asha-workspace .visit-fields input,
+.asha-workspace .visit-fields select {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-control);
+  color: var(--color-ink);
+  background: var(--color-paper-raised);
+}
+
+.asha-workspace .guide-copy {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.asha-workspace .mobile-close,
+.asha-workspace .menu-button {
+  display: none;
+}
+
+@media (max-width: 980px) {
+  .asha-workspace .sidebar {
+    width: min(320px, calc(100% - 48px));
+    transform: translateX(-105%);
+    background: var(--color-sidebar);
+    box-shadow: var(--shadow-drawer);
+    transition: transform var(--dur-short) var(--ease-out);
+  }
+
+  .asha-workspace .sidebar.show {
+    transform: translateX(0);
+  }
+
+  .asha-workspace .app-area {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .asha-workspace .menu-button,
+  .asha-workspace .mobile-close {
+    display: grid;
+  }
+
+  .asha-workspace .queue-layout,
+  .asha-workspace .case-grid,
+  .asha-workspace .phc-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .asha-workspace .topbar {
+    min-height: 64px;
+    padding-inline: 12px;
+  }
+
+  .asha-workspace .top-actions {
+    gap: 2px;
+  }
+
+  .asha-workspace .new-case {
+    min-height: 44px;
+    padding-inline: 12px;
+    font-size: 14px;
+  }
+
+  .asha-workspace .content {
+    padding: 28px 16px 40px;
+  }
+
+  .asha-workspace .page-heading,
+  .asha-workspace .case-heading {
+    display: grid;
+    gap: 16px;
+  }
+
+  .asha-workspace .page-heading h1,
+  .asha-workspace .case-heading h1 {
+    font-size: 30px;
+  }
+
+  .asha-workspace .loop-chip {
+    width: max-content;
+  }
+
+  .asha-workspace .metric-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .asha-workspace .metric-card {
+    min-height: 90px;
+    padding: 12px 8px;
+  }
+
+  .asha-workspace .metric-card + .metric-card {
+    border-top: 1px solid var(--color-rule);
+    border-left: 0;
+  }
+
+  .asha-workspace .today-panel,
+  .asha-workspace .focus-panel,
+  .asha-workspace .handoff-card,
+  .asha-workspace .timeline-panel {
+    padding: 16px;
+  }
+
+  .asha-workspace .task-row {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .asha-workspace .task-meta {
+    min-width: 78px;
+    margin-left: auto;
+    text-align: right;
+  }
+
+  .asha-workspace .task-meta span {
+    font-size: 14px;
+  }
+
+  .asha-workspace .row-chevron {
+    display: none;
+  }
+
+  .asha-workspace .insight-strip {
+    align-items: flex-start;
+  }
+
+  .asha-workspace .case-side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .asha-workspace .visit-fields,
+  .asha-workspace .visit-fields-existing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (hover: hover) {
+  .asha-workspace .nav-item,
+  .asha-workspace .text-button,
+  .asha-workspace .icon-button,
+  .asha-workspace .task-row,
+  .asha-workspace .add-visit,
+  .asha-workspace .primary-button,
+  .asha-workspace .new-case,
+  .asha-workspace .outline-button,
+  .asha-workspace .choice {
+    transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), transform var(--dur-micro) var(--ease-out);
+  }
+}

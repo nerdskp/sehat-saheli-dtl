@@ -1,8 +1,6 @@
 "use client";
 
 import {
-  Activity,
-  ArrowUpRight,
   BellRing,
   Check,
   ChevronRight,
@@ -41,19 +39,19 @@ type View = "queue" | "case" | "households" | "guide";
 const copy = {
   en: {
     fieldCare: "Field care",
-    queue: "Today’s queue",
-    cases: "Care cases",
-    households: "Households",
+    queue: "Today's visits",
+    cases: "Case records",
+    households: "Families",
     howItWorks: "How it works",
     signOut: "Sign out",
-    newCase: "New care case",
-    todaysPeople: "Today's people",
-    viewCalendar: "View calendar",
-    showRoute: "Back to route",
-    visitsToday: "VISITS TODAY",
-    openReferrals: "OPEN REFERRALS",
-    followUpsDue: "FOLLOW-UPS DUE",
-    subheading: "People who need a clear next step today."
+    newCase: "Add a visit",
+    todaysPeople: "People to visit",
+    viewCalendar: "See visit dates",
+    showRoute: "Back to visits",
+    visitsToday: "Visits today",
+    openReferrals: "Open referrals",
+    followUpsDue: "Follow-ups due",
+    subheading: "People who need a next step today."
   },
   kn: {
     fieldCare: "ಕ್ಷೇತ್ರ ಆರೈಕೆ",
@@ -265,7 +263,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
   };
 
   return (
-    <main className="shell">
+    <main className="shell asha-workspace">
       <aside className={`sidebar ${showMenu ? "show" : ""}`}>
         <div className="brand">
           <div className="brand-mark"><HeartPulse size={20} strokeWidth={2.8} /></div>
@@ -280,7 +278,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
           <div className="avatar avatar-dark">{(ashaProfile?.fullName ?? "A").split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase()}</div>
           <div>
             <strong>{ashaProfile?.fullName ?? "Loading…"}</strong>
-            <span>{ashaProfile ? `ASHA · ${ashaProfile.village}` : "—"}</span>
+            <span>{ashaProfile ? `ASHA, ${ashaProfile.village}` : "Loading profile"}</span>
           </div>
           <MoreHorizontal size={18} />
         </div>
@@ -292,16 +290,16 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
         </nav>
 
         <div className="sidebar-bottom">
-          <button className="nav-item" onClick={() => setLang((cur) => cur === "en" ? "kn" : "en")}><Languages size={18} />{lang === "en" ? <>English <span className="muted">/ ಕನ್ನಡ</span></> : <>ಕನ್ನಡ <span className="muted">/ English</span></>}</button>
-          <button className={view === "guide" ? "nav-item active" : "nav-item"} onClick={() => { setView("guide"); setShowMenu(false); }}><CircleHelp size={18} />{t.howItWorks}</button>
-          <button className="nav-item signout-nav" onClick={onSignOut}><LogOut size={18} />{t.signOut}</button>
-          <div className="privacy-note"><ShieldCheck size={15} />Live Supabase sync</div>
+          <button type="button" className="nav-item" aria-label={lang === "en" ? "Switch to Kannada" : "Switch to English"} onClick={() => setLang((cur) => cur === "en" ? "kn" : "en")}><Languages size={18} />{lang === "en" ? "ಕನ್ನಡ" : "English"}</button>
+          <button type="button" className={view === "guide" ? "nav-item active" : "nav-item"} onClick={() => { setView("guide"); setShowMenu(false); }}><CircleHelp size={18} />{t.howItWorks}</button>
+          <button type="button" className="nav-item signout-nav" onClick={onSignOut}><LogOut size={18} />{t.signOut}</button>
+          <div className="privacy-note"><ShieldCheck size={15} />Fictional demo data</div>
         </div>
       </aside>
 
       <section className="app-area">
         <header className="topbar">
-          <button className="menu-button icon-button" onClick={() => setShowMenu(true)} aria-label="Open menu"><Menu size={22} /></button>
+          <button type="button" className="menu-button icon-button" onClick={() => setShowMenu(true)} aria-label="Open menu"><Menu size={22} /></button>
           <div className="breadcrumbs"><span>{t.fieldCare}</span><ChevronRight size={14} /><strong>{view === "queue" ? t.queue : view === "case" ? t.cases : view === "households" ? t.households : t.howItWorks}</strong></div>
           <div className="top-actions" style={{ position: "relative" }}>
             {showSearch && (
@@ -314,7 +312,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                 }}
                 placeholder="Search patient, ward, symptom…"
                 aria-label="Search care cases"
-                style={{ height: 36, width: 210, borderRadius: 8, border: "1px solid #cfded7", padding: "0 10px", fontSize: 13, background: "white" }}
+                style={{ height: 44, width: 240 }}
               />
             )}
             <button
@@ -343,7 +341,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
               <BellRing size={19} />
               {notificationCount > 0 && <i />}
             </button>
-            <button className="new-case" onClick={() => { setShowNotifications(false); setView("queue"); setShowNewCase((open) => !open); }}><Plus size={18} />{t.newCase}</button>
+            <button type="button" className="new-case" onClick={() => { setShowNotifications(false); setView("queue"); setShowNewCase((open) => !open); }}><Plus size={18} />{t.newCase}</button>
 
             {showNotifications && (
               <div
@@ -361,8 +359,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
               >
                 <div className="panel-heading" style={{ alignItems: "center" }}>
                   <div>
-                    <p className="eyebrow">NOTIFICATIONS ({notificationCount})</p>
-                    <h2 style={{ fontSize: 15 }}>Alerts &amp; callbacks</h2>
+                    <h2 style={{ fontSize: 18 }}>Alerts and calls ({notificationCount})</h2>
                   </div>
                   <button type="button" className="icon-button" onClick={() => setShowNotifications(false)} aria-label="Close notifications"><X size={16} /></button>
                 </div>
@@ -382,7 +379,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                         }}
                       >
                         <div className="task-person">
-                          <strong>{item.name} · {item.severityLevel ?? "Alert"}</strong>
+                          <strong>{item.name}, {item.severityLevel ?? "Alert"}</strong>
                           <span>{item.context}</span>
                         </div>
                         <ChevronRight size={16} style={{ marginLeft: "auto" }} />
@@ -392,7 +389,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                       <div key={cb.id} className="task-row" style={{ minHeight: 48, padding: "8px 4px", cursor: "default" }}>
                         <div className="task-person">
                           <strong>{cb.patientName}</strong>
-                          <span>{cb.requestType} · {cb.village}</span>
+                          <span>{cb.requestType}, {cb.village}</span>
                         </div>
                         <button type="button" className="text-button" style={{ marginLeft: "auto" }} onClick={() => markCallbackDone(cb.id)}>Done</button>
                       </div>
@@ -409,7 +406,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
             {showNewCase && (
               <form className="panel" style={{ padding: 20, marginBottom: 20, display: "grid", gap: 12 }} onSubmit={createNewCase}>
                 <div className="panel-heading">
-                  <div><p className="eyebrow">NEW CARE CASE</p><h2>Record a home visit (Aadhaar + Gemini triage)</h2></div>
+                  <div><h2>Record a home visit</h2></div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <button type="button" className="text-button" onClick={() => setIntakeMode(intakeMode === "aadhaar" ? "existing" : "aadhaar")}>
                       {intakeMode === "aadhaar" ? "Pick existing patient" : "Use Aadhaar intake"}
@@ -418,24 +415,24 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                   </div>
                 </div>
                 {intakeMode === "aadhaar" ? (
-                  <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.6fr 1.2fr 1.6fr", gap: 10 }}>
-                    <input value={intakeName} onChange={(e) => setIntakeName(e.target.value)} placeholder="Patient full name" required style={{ height: 40, borderRadius: 8, border: "1px solid #cfded7", padding: "0 12px" }} />
-                    <input type="number" min={0} max={120} value={intakeAge} onChange={(e) => setIntakeAge(e.target.value)} placeholder="Age" required style={{ height: 40, borderRadius: 8, border: "1px solid #cfded7", padding: "0 12px" }} />
-                    <input value={intakeAadhaar} onChange={(e) => setIntakeAadhaar(e.target.value)} placeholder="12-digit Aadhaar" required style={{ height: 40, borderRadius: 8, border: "1px solid #cfded7", padding: "0 12px" }} />
-                    <input value={newContext} onChange={(e) => setNewContext(e.target.value)} placeholder="Disease / symptoms" required style={{ height: 40, borderRadius: 8, border: "1px solid #cfded7", padding: "0 12px" }} />
+                  <div className="visit-fields">
+                    <label htmlFor="intake-name">Patient name<input id="intake-name" name="name" autoComplete="name" value={intakeName} onChange={(e) => setIntakeName(e.target.value)} required /></label>
+                    <label htmlFor="intake-age">Age<input id="intake-age" name="age" type="number" inputMode="numeric" min={0} max={120} value={intakeAge} onChange={(e) => setIntakeAge(e.target.value)} required /></label>
+                    <label htmlFor="intake-aadhaar">12-digit Aadhaar<input id="intake-aadhaar" name="aadhaar" inputMode="numeric" autoComplete="off" value={intakeAadhaar} onChange={(e) => setIntakeAadhaar(e.target.value)} required /></label>
+                    <label htmlFor="intake-context">Reason for visit<input id="intake-context" name="reason" value={newContext} onChange={(e) => setNewContext(e.target.value)} required /></label>
                   </div>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 1fr", gap: 12 }}>
-                    <select value={newPatientId} onChange={(e) => setNewPatientId(e.target.value)} required style={{ height: 40, borderRadius: 8, border: "1px solid #cfded7", padding: "0 10px" }}>
+                  <div className="visit-fields visit-fields-existing">
+                    <label htmlFor="existing-patient">Patient<select id="existing-patient" name="patient" value={newPatientId} onChange={(e) => setNewPatientId(e.target.value)} required>
                       {patients.map((p) => <option key={p.id} value={p.id}>{p.fullName} ({p.village})</option>)}
-                    </select>
-                    <input value={newContext} onChange={(e) => setNewContext(e.target.value)} placeholder="Visit reason (e.g. BP check-in)" required style={{ height: 40, borderRadius: 8, border: "1px solid #cfded7", padding: "0 12px" }} />
-                    <select value={newTone} onChange={(e) => setNewTone(e.target.value as CareTask["tone"])} style={{ height: 40, borderRadius: 8, border: "1px solid #cfded7", padding: "0 10px" }}>
+                    </select></label>
+                    <label htmlFor="existing-context">Reason for visit<input id="existing-context" name="reason" value={newContext} onChange={(e) => setNewContext(e.target.value)} required /></label>
+                    <label htmlFor="visit-type">Visit type<select id="visit-type" name="visitType" value={newTone} onChange={(e) => setNewTone(e.target.value as CareTask["tone"])}>
                       <option value="warm">Routine (Warm)</option>
                       <option value="urgent">Urgent</option>
                       <option value="blue">Follow-up (Blue)</option>
                       <option value="violet">New concern (Violet)</option>
-                    </select>
+                    </select></label>
                   </div>
                 )}
                 {intakeError && <p className="auth-error">{intakeError}</p>}
@@ -447,10 +444,10 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
             )}
 
             {newCreds && (
-              <div className="panel" style={{ padding: 16, marginBottom: 20, background: "#eaf7f2", borderColor: "#9acbbc", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div className="panel" style={{ padding: 16, marginBottom: 20, background: "var(--color-form-success-paper)", borderColor: "var(--color-form-success-edge)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <strong>New Patient Account Created for {newCreds.name}</strong>
-                  <div style={{ fontSize: 13, marginTop: 4 }}>Username: <code>{newCreds.username}</code> · Password: <code>{newCreds.password}</code></div>
+                  <div style={{ fontSize: 14, marginTop: 4 }}>Username: <code>{newCreds.username}</code>. Password: <code>{newCreds.password}</code></div>
                 </div>
                 <button type="button" className="icon-button" onClick={() => setNewCreds(null)} aria-label="Dismiss"><X size={16} /></button>
               </div>
@@ -458,11 +455,11 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
 
             {callbacks.length > 0 && (
               <section className="panel" style={{ padding: 18, marginBottom: 20 }}>
-                <div className="panel-heading"><div><p className="eyebrow">PATIENT REQUESTS</p><h2>Callbacks waiting ({callbacks.length})</h2></div><PhoneCall size={18} /></div>
+                <div className="panel-heading"><div><h2>People to call ({callbacks.length})</h2></div><PhoneCall size={18} /></div>
                 <div className="task-list">
                   {callbacks.map((cb) => (
                     <div key={cb.id} className="task-row" style={{ cursor: "default" }}>
-                      <div className="task-person"><strong>{cb.patientName}</strong><span>{cb.requestType} · {cb.village}</span></div>
+                      <div className="task-person"><strong>{cb.patientName}</strong><span>{cb.requestType}, {cb.village}</span></div>
                       <button type="button" className="outline-button" style={{ marginLeft: "auto" }} onClick={() => markCallbackDone(cb.id)}><Check size={15} />Mark called</button>
                     </div>
                   ))}
@@ -471,32 +468,31 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
             )}
             <div className="page-heading">
               <div>
-                <p className="eyebrow">{dateLabel || "TODAY"}</p>
+                <p className="section-label">{dateLabel ? dateLabel.toLocaleLowerCase() : "Today"}</p>
                 <h1>{greeting || "Good morning."}</h1>
-                <p className="subheading">{loading ? "Loading care queue…" : tasks.length ? t.subheading : "None — no care cases recorded yet."}</p>
+                <p className="subheading">{loading ? "Loading visits…" : tasks.length ? t.subheading : "No visits are recorded yet."}</p>
               </div>
-              <div className="loop-chip"><Activity size={17} /><span>{metrics.openReferrals} open referrals</span></div>
             </div>
 
-            <div className="metric-grid">
-              <article className="metric-card coral"><div><span>{t.visitsToday}</span><strong>{String(metrics.visitsToday).padStart(2, "0")}</strong><small><Check size={14} /> {metrics.confirmedVisits} confirmed</small></div><Home size={25} /></article>
-              <article className="metric-card amber"><div><span>{t.openReferrals}</span><strong>{String(metrics.openReferrals).padStart(2, "0")}</strong><small><Clock3 size={14} /> awaiting PHC</small></div><Send size={24} /></article>
-              <article className="metric-card teal"><div><span>{t.followUpsDue}</span><strong>{String(metrics.followUpsDue).padStart(2, "0")}</strong><small><ArrowUpRight size={14} /> follow-up / booked</small></div><HeartPulse size={25} /></article>
+            <div className="metric-grid" aria-label="Today's visit counts">
+              <article className="metric-card coral"><div><span>{t.visitsToday}</span><strong>{String(metrics.visitsToday).padStart(2, "0")}</strong><small>{metrics.confirmedVisits} confirmed</small></div><Home size={24} aria-hidden="true" /></article>
+              <article className="metric-card amber"><div><span>{t.openReferrals}</span><strong>{String(metrics.openReferrals).padStart(2, "0")}</strong><small>Waiting for PHC</small></div><Send size={23} aria-hidden="true" /></article>
+              <article className="metric-card teal"><div><span>{t.followUpsDue}</span><strong>{String(metrics.followUpsDue).padStart(2, "0")}</strong><small>Booked or needed</small></div><HeartPulse size={24} aria-hidden="true" /></article>
             </div>
 
             <div className="queue-layout">
               <section className="panel today-panel">
-                <div className="panel-heading"><div><p className="eyebrow">{calendarMode ? "SCHEDULE & FOLLOW-UPS" : "CARE ROUTE"}</p><h2>{calendarMode ? "Visit calendar" : t.todaysPeople}</h2></div><button className="text-button" onClick={() => setCalendarMode((m) => !m)}>{calendarMode ? t.showRoute : t.viewCalendar}</button></div>
+                <div className="panel-heading"><div><h2>{calendarMode ? "Visit dates" : t.todaysPeople}</h2></div><button type="button" className="text-button" onClick={() => setCalendarMode((m) => !m)}>{calendarMode ? t.showRoute : t.viewCalendar}</button></div>
                 <div className="task-list">
                   {filteredTasks.length === 0 ? (
-                    <p className="empty-request" style={{ padding: "16px 0" }}>{loading ? "Loading…" : "None"}</p>
+                    <p className="empty-request" style={{ padding: "16px 0" }}>{loading ? "Loading visits…" : "No visits to show."}</p>
                   ) : (
                     filteredTasks.map((task) => (
-                      <button key={task.id} className="task-row" onClick={() => openCase(task.id)}>
+                      <button type="button" key={task.id} className="task-row" onClick={() => openCase(task.id)}>
                         <div className={`avatar avatar-${task.tone}`}>{task.initials}</div>
                         <div className="task-person">
-                          <strong>{task.name} {task.source === "telegram" ? "· Telegram" : ""}</strong>
-                          <span>{task.context}{task.severityLevel ? ` · ${task.severityLevel} (${task.severityScore ?? "-"}/10)` : ""}</span>
+                          <strong>{task.name}{task.source === "telegram" ? " (Telegram)" : ""}</strong>
+                          <span>{task.context}{task.severityLevel ? `, ${task.severityLevel} (${task.severityScore ?? "-"}/10)` : ""}</span>
                         </div>
                         <div className="task-meta"><em className={`tag tag-${task.tone}`}>{task.visitType === "follow-up" ? "Follow-up" : task.tag}</em><span>{calendarMode && task.followUpDate ? `Due ${task.followUpDate}` : task.time}</span></div>
                         <ChevronRight className="row-chevron" size={19} />
@@ -504,14 +500,14 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                     ))
                   )}
                 </div>
-                <button className="add-visit" onClick={() => setShowNewCase(true)}><Plus size={17} />Add another visit or concern</button>
+                <button type="button" className="add-visit" onClick={() => setShowNewCase(true)}><Plus size={17} />Add a visit</button>
               </section>
 
               <aside className="panel focus-panel">
-                <div className="panel-heading"><div><p className="eyebrow">FOCUS NOW</p><h2>Close this loop</h2></div><span className="focus-dot" /></div>
+                <div className="panel-heading"><div><h2>Next step</h2></div></div>
                 {focusTask ? (
                   <>
-                    <div className="focus-avatar"><div className={`avatar avatar-${focusTask.tone}`}>{focusTask.initials}</div><div><strong>{focusTask.name}</strong><span>{focusTask.ageLabel} · {focusTask.ward}</span></div></div>
+                    <div className="focus-avatar"><div className={`avatar avatar-${focusTask.tone}`}>{focusTask.initials}</div><div><strong>{focusTask.name}</strong><span>{focusTask.ageLabel}, {focusTask.ward}</span></div></div>
                     <div className="focus-callout"><MapPin size={18} /><p><strong>{focusTask.referralStatus ?? focusTask.tag}</strong><br />{focusTask.triageSummary ?? focusTask.context}</p></div>
                     <div className="mini-timeline">
                       <span className="complete" />
@@ -520,7 +516,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                       <span className={focusTask.referralStatus === "Follow-up booked" ? "complete" : ""} />
                     </div>
                     <div className="timeline-labels"><span>Recorded</span><span>Sent</span><span>PHC</span><span>Follow-up</span></div>
-                    <button className="primary-button" onClick={() => openCase(focusTask.id)}>Open care case <ChevronRight size={17} /></button>
+                    <button type="button" className="primary-button" onClick={() => openCase(focusTask.id)}>View care case <ChevronRight size={17} /></button>
                   </>
                 ) : (
                   <p style={{ opacity: 0.85, marginTop: 18 }}>None</p>
@@ -528,18 +524,17 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
               </aside>
             </div>
 
-            <div className="insight-strip"><div className="insight-icon"><MessageCircle size={18} /></div><p><strong>Care coordination live:</strong> Every Telegram &amp; ASHA intake updates Supabase and syncs to the PHC doctor queue in real time.</p></div>
+            <div className="insight-strip"><div className="insight-icon"><MessageCircle size={18} /></div><p><strong>Visit updates:</strong> New visits appear in the PHC team list.</p></div>
           </section>
         )}
 
         {view === "case" && (
           <section className="content case-view">
-            <button className="back-button" onClick={() => setView("queue")}><ChevronRight size={17} />Back to queue</button>
+            <button type="button" className="back-button" onClick={() => setView("queue")}><ChevronRight size={17} />Back to visits</button>
             {!activeTask ? (
               <section className="panel" style={{ padding: 24, marginTop: 16 }}>
-                <p className="eyebrow">CARE CASES</p>
-                <h2>None</h2>
-                <p className="subheading">No care cases recorded yet.</p>
+                <h2>No care cases yet</h2>
+                <p className="subheading">Add a visit to start a care record.</p>
               </section>
             ) : (
               <>
@@ -552,13 +547,13 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                         className={task.id === activeTask.id ? "choice selected" : "choice"}
                         onClick={() => openCase(task.id)}
                       >
-                        {task.name} · {task.severityLevel ?? task.tag} ({task.severityScore ?? "-"}/10)
+                        {task.name}, {task.severityLevel ?? task.tag} ({task.severityScore ?? "-"}/10)
                       </button>
                     ))}
                   </div>
                 )}
                 <div className="case-heading">
-                  <div className="case-person"><div className={`avatar avatar-${activeTask.tone} large`}>{activeTask.initials}</div><div><p className="eyebrow">PERSONAL CARE CARD · {activeTask.visitType === "follow-up" ? "FOLLOW-UP" : "FRESH VISIT"}</p><h1>{activeTask.name}</h1><span>{activeTask.ageLabel} · {activeTask.ward} · {activeTask.context}{activeTask.aadhaarMasked ? ` · Aadhaar ${activeTask.aadhaarMasked}` : ""}</span></div></div>
+                  <div className="case-person"><div className={`avatar avatar-${activeTask.tone} large`}>{activeTask.initials}</div><div><p className="section-label">{activeTask.visitType === "follow-up" ? "Follow-up visit" : "First visit"}</p><h1>{activeTask.name}</h1><span>{activeTask.ageLabel}, {activeTask.ward}, {activeTask.context}{activeTask.aadhaarMasked ? `, Aadhaar ${activeTask.aadhaarMasked}` : ""}</span></div></div>
                   {(caseDetail?.referral?.status ?? activeTask.referralStatus)
                     ? <StatusPill status={caseDetail?.referral?.status ?? activeTask.referralStatus!} />
                     : <span className={`tag tag-${activeTask.tone}`}>{activeTask.tag}</span>}
@@ -567,31 +562,30 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                   <section className="panel" style={{ padding: 24, display: "grid", gap: 18, alignContent: "start" }}>
                     <div className="card-heading">
                       <div>
-                        <p className="eyebrow">INDIVIDUAL PATIENT TRIAGE</p>
-                        <h2>{activeTask.name}&apos;s assessment</h2>
+                        <h2>Patient details</h2>
                       </div>
                       <span className={`tag tag-${activeTask.tone}`}>
-                        {activeTask.severityLevel ?? "Unscored"} · {activeTask.severityScore ?? "-"}/10
+                        {activeTask.severityLevel ?? "Unscored"}, {activeTask.severityScore ?? "-"}/10
                       </span>
                     </div>
 
-                    <div style={{ display: "grid", gap: 12, padding: 16, borderRadius: 12, background: activeTask.alertFlagged ? "#fff5f3" : "#f6faf8", border: `1px solid ${activeTask.alertFlagged ? "#f2b8ad" : "#dce9e3"}` }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#627e76" }}>
+                    <div style={{ display: "grid", gap: 12, padding: 16, borderRadius: 12, background: activeTask.alertFlagged ? "var(--color-alert-paper)" : "var(--color-panel-paper)", border: `1px solid ${activeTask.alertFlagged ? "var(--color-alert-edge)" : "var(--color-panel-edge)"}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "var(--color-ink-subtle)" }}>
                         <span>Source: <strong>{activeTask.source === "telegram" ? "Telegram" : "Web"}</strong></span>
                         <span>Recorded: <strong>{activeTask.time}</strong></span>
                       </div>
                       <div>
-                        <p className="eyebrow" style={{ marginBottom: 4 }}>REPORTED CONCERN</p>
+                        <p className="section-label" style={{ marginBottom: 4 }}>Reported concern</p>
                         <strong style={{ fontSize: 15 }}>{activeTask.context}</strong>
                       </div>
                       <div>
-                        <p className="eyebrow" style={{ marginBottom: 4 }}>PERSONAL TRIAGE SUMMARY</p>
-                        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: "#2d4c45" }}>{activeTask.triageSummary ?? "None"}</p>
+                        <p className="section-label" style={{ marginBottom: 4 }}>Summary</p>
+                        <p style={{ margin: 0, fontSize: 16, lineHeight: 1.5, color: "var(--color-ink-strong)" }}>{activeTask.triageSummary ?? "None"}</p>
                       </div>
                     </div>
 
                     <div>
-                      <p className="eyebrow" style={{ marginBottom: 8 }}>AGREED NEXT STEP</p>
+                      <p className="section-label" style={{ marginBottom: 8 }}>Agreed next step</p>
                       <div className="choice-grid" style={{ marginLeft: 0 }}>
                         {careActions.map((choice) => (
                           <button
@@ -607,17 +601,17 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                       </div>
                     </div>
 
-                    <div className="case-disclaimer" style={{ borderRadius: 10 }}><ShieldCheck size={16} />Coordination tool only — follow approved clinical protocols.</div>
+                    <div className="case-disclaimer" style={{ borderRadius: 10 }}><ShieldCheck size={16} />Coordination tool only; follow approved clinical protocols.</div>
                   </section>
 
                   <aside className="case-side">
                     <section className="panel handoff-card">
-                      <div className="card-heading"><div><p className="eyebrow">FACILITY HANDOFF</p><h2>Referral summary</h2></div><Send size={20} /></div>
+                      <div className="card-heading"><div><h2>Referral summary</h2></div><Send size={20} /></div>
                       {!caseDetail ? (
                         <p className="subheading">Loading…</p>
                       ) : !caseDetail.referral ? (
                         <>
-                          <p className="subheading" style={{ marginBottom: 12 }}>None</p>
+                          <p className="subheading" style={{ marginBottom: 12 }}>No referral has been sent yet.</p>
                           <button className="primary-button compact" onClick={sendReferral}><Send size={15} />Send referral to PHC</button>
                         </>
                       ) : (
@@ -625,7 +619,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                           <dl>
                             <div><dt>To</dt><dd>{caseDetail.referral.facility}</dd></div>
                             <div><dt>Reason</dt><dd>{caseDetail.referral.reason}</dd></div>
-                            <div><dt>From</dt><dd>{ashaProfile?.fullName ?? "ASHA"} · ASHA</dd></div>
+                            <div><dt>From</dt><dd>{ashaProfile?.fullName ?? "ASHA"}, ASHA</dd></div>
                           </dl>
                           {caseDetail.referral.status === "Awaiting PHC" ? (
                             <div className="received-note"><Clock3 size={16} />Awaiting review on /phc</div>
@@ -637,7 +631,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                     </section>
 
                     <section className="panel timeline-panel">
-                      <div className="card-heading"><div><p className="eyebrow">CARE TIMELINE</p><h2>Recorded events</h2></div></div>
+                      <div className="card-heading"><div><h2>Care history</h2></div></div>
                       <div className="event-list">
                         {caseDetail?.events.length ? (
                           caseDetail.events.map((event) => (
@@ -648,10 +642,10 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                             </div>
                           ))
                         ) : (
-                          <p className="empty-request">{caseDetail ? "None" : "Loading…"}</p>
+                          <p className="empty-request">{caseDetail ? "No updates yet." : "Loading care history…"}</p>
                         )}
                       </div>
-                      {caseDetail?.referral?.status === "Received at PHC" && <button className="primary-button compact" onClick={scheduleFollowUp}><PhoneCall size={16} />Schedule return visit</button>}
+                      {caseDetail?.referral?.status === "Received at PHC" && <button type="button" className="primary-button compact" onClick={scheduleFollowUp}><PhoneCall size={16} />Schedule return visit</button>}
                       {caseDetail?.referral?.status === "Follow-up booked" && <div className="success-banner"><Check size={17} /><div><strong>Follow-up scheduled</strong><span>{caseDetail.referral.followUpDate ?? "Booked"}</span></div></div>}
                     </section>
                   </aside>
@@ -665,22 +659,22 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
           <section className="content queue-view">
             <div className="page-heading">
               <div>
-                <p className="eyebrow">{ashaProfile?.assignedPanchayat ?? "LINKED HOUSEHOLDS"}</p>
+                <p className="section-label">{ashaProfile?.assignedPanchayat ?? "Linked families"}</p>
                 <h1>{t.households} ({patients.length})</h1>
-                <p className="subheading">{patients.length ? `Registered households linked to ${ashaProfile?.fullName ?? "ASHA"}.` : "None"}</p>
+                <p className="subheading">{patients.length ? `Families linked to ${ashaProfile?.fullName ?? "your ASHA account"}.` : "No families are linked yet."}</p>
               </div>
             </div>
             <section className="panel today-panel" style={{ marginTop: 22 }}>
               <div className="task-list" style={{ marginTop: 0 }}>
                 {filteredPatients.length === 0 ? (
-                  <p className="empty-request">None</p>
+                  <p className="empty-request">No families to show.</p>
                 ) : (
                   filteredPatients.map((patient) => (
                     <div key={patient.id} className="task-row" style={{ cursor: "default" }}>
                       <div className="avatar avatar-blue">{patient.fullName.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase()}</div>
                       <div className="task-person">
-                        <strong>{patient.fullName} · {patient.patientCode}</strong>
-                        <span>{patient.age} years · {patient.gender} · {patient.village}</span>
+                         <strong>{patient.fullName}, {patient.patientCode}</strong>
+                         <span>{patient.age} years, {patient.gender}, {patient.village}</span>
                       </div>
                       <button
                         type="button"
@@ -707,26 +701,22 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
           <section className="content queue-view">
             <div className="page-heading">
               <div>
-                <p className="eyebrow">CARE LOOP GUIDE</p>
                 <h1>{t.howItWorks}</h1>
-                <p className="subheading">How home visits, Telegram intake, Gemini triage, and PHC appointments stay connected.</p>
+                <p className="subheading">How home visits and follow-ups reach the PHC team.</p>
               </div>
             </div>
             <div className="metric-grid" style={{ marginTop: 22 }}>
               <article className="panel" style={{ padding: 20 }}>
-                <p className="eyebrow">1. TELEGRAM VISIT INTAKE</p>
-                <h2 style={{ margin: "0 0 8px", fontSize: 17 }}>Send visit details to @sehatsaheli_bot</h2>
-                <p className="subheading" style={{ fontSize: 13 }}>Format: <code>Name, Age, 12-digit Aadhaar, Disease</code> (e.g. <code>Satvik, 6, 234567891234, High fever</code>).</p>
+                <h2 style={{ margin: "0 0 8px", fontSize: 19 }}>Send visit details to @sehatsaheli_bot</h2>
+                <p className="subheading guide-copy">Send: name, age, 12-digit Aadhaar, and reason for the visit.</p>
               </article>
               <article className="panel" style={{ padding: 20 }}>
-                <p className="eyebrow">2. AUTO ACCOUNT &amp; FOLLOW-UP</p>
-                <h2 style={{ margin: "0 0 8px", fontSize: 17 }}>Aadhaar-matched patient portal</h2>
-                <p className="subheading" style={{ fontSize: 13 }}>Existing Aadhaar adds a follow-up visit. New Aadhaar creates username <code>firstname</code> and password <code>FIRST3CAPS + last 4 digits</code>.</p>
+                <h2 style={{ margin: "0 0 8px", fontSize: 19 }}>Patient account and follow-up</h2>
+                <p className="subheading guide-copy">A returning patient keeps the same account. A new patient gets an account.</p>
               </article>
               <article className="panel" style={{ padding: 20 }}>
-                <p className="eyebrow">3. GEMINI SEVERITY &amp; /phc</p>
-                <h2 style={{ margin: "0 0 8px", fontSize: 17 }}>Doctor queue ranked by urgency</h2>
-                <p className="subheading" style={{ fontSize: 13 }}>Gemini scores urgency using age + symptoms, triggers alerts on critical cases, and places the highest-severity case #1 on <code>/phc</code>.</p>
+                <h2 style={{ margin: "0 0 8px", fontSize: 19 }}>Urgency and the PHC queue</h2>
+                <p className="subheading guide-copy">The app checks age and symptoms. More urgent cases appear first in the PHC list.</p>
               </article>
             </div>
           </section>

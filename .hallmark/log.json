@@ -1,0 +1,27 @@
+[
+  {
+    "date": "2026-11-27",
+    "mode": "redesign",
+    "depth": "full",
+    "scope": "app",
+    "shape": "ASHA care coordination workspace",
+    "theme": "brand",
+    "axes": "light/rounded-sans/cool",
+    "hero": "app screen with no hero",
+    "nav": "soft fixed sidebar",
+    "footer": "sidebar controls and sample-data note",
+    "imagery": "authenticated product screenshots for review; no photos in the operational screen",
+    "photos": [],
+    "entry": "2026-11-27",
+    "fingerprint": "soft queue, plain-language labels, priority panel",
+    "sections": [
+      "visit summary",
+      "daily visit list",
+      "next-step panel",
+      "updates note"
+    ],
+    "signature": "live care queue and next action",
+    "waived": [],
+    "prompt": "Redesign /asha for less literate ASHA workers in a soft style, using project screenshots and available figures."
+  }
+]

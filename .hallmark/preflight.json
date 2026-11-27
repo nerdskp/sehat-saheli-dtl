@@ -1,0 +1,20 @@
+{
+  "scanned": "2026-11-27",
+  "findings": {
+    "fonts": "Arial, Helvetica, sans-serif (globals.css:6)",
+    "palette": "teal, mint, coral, amber (globals.css:3)",
+    "motion": "CSS transitions; no motion library (frontend/package.json)",
+    "spacing": "CSS values in globals.css; Tailwind 4 (frontend/package.json)",
+    "framework": "Next.js 16 App Router (frontend/package.json:15)"
+  },
+  "preserve": [
+    "Sehat Saheli palette",
+    "Next.js app stack",
+    "ASHA workflow and data"
+  ],
+  "introduce": [
+    "soft, legible app screen composition",
+    "app-scope tokens",
+    "Hallmark gates"
+  ]
+}\n

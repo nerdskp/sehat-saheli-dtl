@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./tokens.css";
+import "./base.css";
+import "./asha-workspace.css";
 
 export const metadata: Metadata = {
   title: "Sehat Saheli | Care Loop",
