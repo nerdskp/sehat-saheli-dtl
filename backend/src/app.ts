@@ -2,6 +2,7 @@ import cors from "cors";
 import express, { type RequestHandler } from "express";
 import { z } from "zod";
 import { careStore } from "./data";
+import { isValidFollowUpDate } from "./follow-up";
 import type { UserRole } from "./types";
 
 const actionSchema = z.object({
@@ -9,7 +10,7 @@ const actionSchema = z.object({
 });
 
 const followUpSchema = z.object({
-  date: z.string().min(3).max(64).optional()
+  date: z.string().refine((value) => isValidFollowUpDate(value), "Choose a valid date today or later")
 });
 
 const createCaseSchema = z.object({
@@ -55,7 +56,7 @@ const requireRole = (...roles: UserRole[]): RequestHandler => async (request, re
 
 export function createApp() {
   const app = express();
-  const origins = (process.env.FRONTEND_ORIGIN ?? "http://localhost:3000").split(",");
+  const origins = (process.env.FRONTEND_ORIGIN ?? "http://localhost:3000").split(",").map((origin) => origin.trim()).filter(Boolean);
 
   app.use(cors({ origin: origins }));
   app.use(express.json());
@@ -199,7 +200,7 @@ export function createApp() {
   app.use((_request, response) => response.status(404).json({ error: "Route not found" }));
   app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
     const message = error instanceof Error ? error.message : "Unexpected server error";
-    const status = message.endsWith("not found") ? 404 : message.startsWith("Invalid Aadhaar") ? 400 : 500;
+    const status = message.endsWith("not found") ? 404 : message.startsWith("Invalid Aadhaar") || message.startsWith("Invalid follow-up") ? 400 : 500;
     response.status(status).json({ error: message });
   });
 

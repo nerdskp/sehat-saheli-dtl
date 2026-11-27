@@ -75,14 +75,25 @@ interface DashboardPayload {
   callbackRequests: CallbackRequest[];
 }
 
-const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api").replace(/\/$/, "");
+// A phone opening the dev server must call the computer's API, not its own localhost.
+const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? (typeof window !== "undefined"
+  ? `${window.location.protocol}//${window.location.hostname}:4000/api`
+  : "http://localhost:4000/api")).replace(/\/$/, "");
+
+export class ApiError extends Error {
+  constructor(message: string, public status: number) { super(message); }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBase}${path}`, {
     ...init,
+    signal: init?.signal ?? AbortSignal.timeout(45000),
     headers: { "Content-Type": "application/json", ...init?.headers }
   });
-  if (!response.ok) throw new Error(`API request failed (${response.status})`);
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new ApiError(body?.error ?? `API request failed (${response.status})`, response.status);
+  }
   return response.json() as Promise<T>;
 }
 
@@ -119,5 +130,5 @@ export const careApi = {
   requestPatientCallback: (token: string) => request<{ id: string; requestType: string; status: string; createdAt: string }>("/patient/me/callbacks", { method: "POST", ...authenticated(token) }),
   recordAction: (token: string, caseId: string, action: CareAction) => request<CareCaseDetail>(`/cases/${caseId}/action`, { method: "PATCH", body: JSON.stringify({ action }), ...authenticated(token) }),
   acknowledgeReferral: (token: string, referralId: string) => request<{ status: CaseStatus }>(`/referrals/${referralId}/acknowledge`, { method: "POST", ...authenticated(token) }),
-  scheduleFollowUp: (token: string, caseId: string) => request<{ status: CaseStatus }>(`/cases/${caseId}/follow-ups`, { method: "POST", body: JSON.stringify({}), ...authenticated(token) })
+  scheduleFollowUp: (token: string, caseId: string, date: string) => request<{ status: CaseStatus }>(`/cases/${caseId}/follow-ups`, { method: "POST", body: JSON.stringify({ date }), ...authenticated(token) })
 };

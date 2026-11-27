@@ -18,7 +18,10 @@
     "design-thinking-lab",
     "healthcare"
   ],
-  "workspaces": ["frontend", "backend"],
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
     "dev": "concurrently --names frontend,backend --prefix-colors cyan,magenta \"npm run dev --workspace frontend\" \"npm run dev --workspace backend\"",
     "dev:frontend": "npm run dev --workspace frontend",
@@ -28,9 +31,12 @@
     "build:backend": "npm run build --workspace backend",
     "typecheck": "npm run typecheck --workspaces",
     "typecheck:frontend": "npm run typecheck --workspace frontend",
-    "typecheck:backend": "npm run typecheck --workspace backend"
+    "typecheck:backend": "npm run typecheck --workspace backend",
+    "test": "tsx --test tests/backend.test.ts",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "concurrently": "^9.2.1"
   }
 }

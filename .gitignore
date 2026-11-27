@@ -7,3 +7,6 @@ dist
 *.tsbuildinfo
 *.db
 *.sqlite
+
+/test-results/
+/playwright-report/
