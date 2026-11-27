@@ -1,5 +1,10 @@
 import { careStore } from "./data";
-import { normalizeAadhaar } from "./triage";
+import { normalizeAadhaar, transcribeSymptomAudioWithGemini } from "./triage";
+
+interface TelegramVoice {
+  file_id: string;
+  mime_type?: string;
+}
 
 interface TelegramUpdate {
   update_id: number;
@@ -7,23 +12,48 @@ interface TelegramUpdate {
     message_id: number;
     chat: { id: number };
     text?: string;
+    caption?: string;
+    voice?: TelegramVoice;
+    audio?: TelegramVoice;
   };
 }
 
+interface ParsedVisit {
+  name: string;
+  age: number;
+  aadhaar: string;
+  description: string;
+  village?: string;
+}
+
+interface GuidedDraft {
+  step: "name" | "age" | "aadhaar" | "description";
+  name?: string;
+  age?: number;
+  aadhaar?: string;
+  description?: string;
+}
+
 const FORMAT_HELP = [
-  "Send visit details in either format:",
+  "Sehat Saheli Bot — Commands & Formats:",
   "",
-  "1) Single line:",
+  "Guided intake: send /new (or send a voice note 🎤)",
+  "Check patient status: /status <12-digit Aadhaar>",
+  "Set default village/ASHA: /village <name> | /asha <worker_code>",
+  "Cancel current step: /cancel",
+  "",
+  "Or send all details in 1 message (English or Hinglish):",
   "Satvik, 6, 234567891234, High fever since 2 days",
+  "Satvik, 6, 234567891234, 2 din se tez bukhar aur khansi hai",
   "",
-  "2) Labeled lines:",
+  "Labeled format:",
   "Name: Satvik",
   "Age: 6",
   "Aadhaar: 234567891234",
-  "Disease: High fever since 2 days"
+  "Disease: 2 din se tez bukhar aur khansi hai"
 ].join("\n");
 
-export function parseTelegramVisit(text: string): { name: string; age: number; aadhaar: string; description: string } | { error: string } {
+export function parseTelegramVisit(text: string): ParsedVisit | { error: string } {
   const trimmed = text.trim();
   if (!trimmed || trimmed.startsWith("/start") || trimmed.startsWith("/help")) {
     return { error: FORMAT_HELP };
@@ -33,17 +63,19 @@ export function parseTelegramVisit(text: string): { name: string; age: number; a
   let ageRaw = "";
   let aadhaarRaw = "";
   let description = "";
+  let village: string | undefined;
 
-  if (/name\s*:/i.test(trimmed) && /age\s*:/i.test(trimmed)) {
+  if (/(name|naam)\s*:/i.test(trimmed) && /(age|umar|umr)\s*:/i.test(trimmed)) {
     for (const line of trimmed.split(/\r?\n/)) {
       const match = line.match(/^([a-zA-Z\s]+):\s*(.+)$/);
       if (!match) continue;
       const key = match[1].trim().toLowerCase();
       const val = match[2].trim();
-      if (key === "name") name = val;
-      else if (key === "age") ageRaw = val;
+      if (key === "name" || key === "naam") name = val;
+      else if (key === "age" || key === "umar" || key === "umr") ageRaw = val;
       else if (key.startsWith("aadhar") || key.startsWith("aadhaar")) aadhaarRaw = val;
-      else if (["disease", "symptoms", "symptom", "description", "visit", "issue"].includes(key)) description = val;
+      else if (key === "village" || key === "gaon") village = val;
+      else if (["disease", "symptoms", "symptom", "description", "visit", "issue", "bimari", "takleef", "lakshan"].includes(key)) description = val;
     }
   } else {
     const parts = trimmed.split(trimmed.includes("|") ? "|" : ",").map((part) => part.trim()).filter(Boolean);
@@ -62,7 +94,7 @@ export function parseTelegramVisit(text: string): { name: string; age: number; a
   if (!aadhaar) return { error: "Invalid Aadhaar number. It must be 12 digits and cannot start with 0 or 1." };
   if (!description || description.length < 2) return { error: "Please include the disease or symptom description." };
 
-  return { name, age, aadhaar, description };
+  return { name, age, aadhaar, description, village };
 }
 
 async function sendTelegramMessage(token: string, chatId: number | string, text: string) {
@@ -73,6 +105,79 @@ async function sendTelegramMessage(token: string, chatId: number | string, text:
   }).catch(() => {});
 }
 
+async function downloadTelegramVoice(token: string, voice: TelegramVoice): Promise<{ base64: string; mimeType: string } | null> {
+  try {
+    const metaRes = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${encodeURIComponent(voice.file_id)}`);
+    if (!metaRes.ok) return null;
+    const meta = (await metaRes.json()) as { ok: boolean; result?: { file_path?: string } };
+    const filePath = meta.result?.file_path;
+    if (!filePath) return null;
+
+    const fileRes = await fetch(`https://api.telegram.org/file/bot${token}/${filePath}`);
+    if (!fileRes.ok) return null;
+    const buf = Buffer.from(await fileRes.arrayBuffer());
+    return { base64: buf.toString("base64"), mimeType: voice.mime_type || "audio/ogg" };
+  } catch {
+    return null;
+  }
+}
+
+async function submitVisitFromTelegram(
+  token: string,
+  chatId: number,
+  alertChatId: string | undefined,
+  visit: ParsedVisit
+) {
+  const [savedVillage, savedAsha] = await Promise.all([
+    visit.village ? Promise.resolve(visit.village) : careStore.getState(`tg_village:${chatId}`),
+    careStore.getState(`tg_asha:${chatId}`)
+  ]);
+
+  const result = await careStore.ingestVisitFromIntake({
+    name: visit.name,
+    age: visit.age,
+    aadhaar: visit.aadhaar,
+    description: visit.description,
+    village: savedVillage,
+    ashaWorkerId: savedAsha,
+    source: "telegram"
+  });
+
+  // Persist chat ID so PHC acknowledgements and follow-up bookings notify this chat.
+  await careStore.setState(`case_tg_chat:${result.careCase.id}`, String(chatId)).catch(() => {});
+
+  const lines = [
+    result.careCase.alertFlagged
+      ? `🚨 ALERT: ${result.careCase.severityLevel} priority (${result.careCase.severityScore}/10)`
+      : `✅ Recorded (${result.careCase.severityLevel} · ${result.careCase.severityScore}/10)`,
+    `Patient: ${result.careCase.name} (${result.careCase.ageLabel} · ${result.careCase.ward})`,
+    `Visit type: ${result.visitType === "follow-up" ? "Follow-up visit (existing Aadhaar)" : "Fresh visit (new patient)"}`,
+    `Disease (English): ${result.triage.englishDescription}`,
+    `Disease (Hinglish): ${result.triage.hinglishDescription}`,
+    `Triage note: ${result.careCase.triageSummary ?? visit.description}`,
+    result.careCase.referralId ? "PHC Queue: Sent & ranked by severity." : "ASHA Queue: Added to today's visits."
+  ];
+
+  if (result.credentials) {
+    lines.push(
+      "",
+      "New Patient Portal Credentials:",
+      `Username: ${result.credentials.username}`,
+      `Password: ${result.credentials.password}`
+    );
+  }
+
+  await sendTelegramMessage(token, chatId, lines.join("\n"));
+
+  if (result.careCase.alertFlagged && alertChatId && alertChatId !== String(chatId)) {
+    await sendTelegramMessage(
+      token,
+      alertChatId,
+      `🚨 PHC SEVERITY ALERT\n${result.careCase.name} (${result.careCase.ageLabel})\nEnglish: ${result.triage.englishDescription}\nHinglish: ${result.triage.hinglishDescription}\nScore: ${result.careCase.severityScore}/10 (${result.careCase.severityLevel})`
+    );
+  }
+}
+
 export function startTelegramBot() {
   const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
   const alertChatId = process.env.TELEGRAM_CHAT_ID?.trim();
@@ -81,7 +186,141 @@ export function startTelegramBot() {
     return;
   }
 
+  careStore.setCaseUpdateNotifier(async (caseId, text) => {
+    const chatId = await careStore.getState(`case_tg_chat:${caseId}`).catch(() => undefined);
+    if (chatId) await sendTelegramMessage(token, chatId, text);
+  });
+
+  // ponytail: in-memory draft map keeps guided flow zero-latency; server restart clears mid-draft sessions (/new restarts).
+  const drafts = new Map<number, GuidedDraft>();
   let stopped = false;
+
+  const advanceDraft = async (chatId: number, draft: GuidedDraft, text: string) => {
+    if (draft.step === "name") {
+      if (text.length < 2) return sendTelegramMessage(token, chatId, "Please enter a valid patient name (at least 2 characters):");
+      draft.name = text;
+      draft.step = "age";
+      return sendTelegramMessage(token, chatId, "Step 2 — Age in years / Umar batayein (0–120):");
+    }
+    if (draft.step === "age") {
+      const age = Number.parseInt(text, 10);
+      if (!Number.isFinite(age) || age < 0 || age > 120) return sendTelegramMessage(token, chatId, "Invalid age. Enter years between 0 and 120:");
+      draft.age = age;
+      draft.step = "aadhaar";
+      return sendTelegramMessage(token, chatId, "Step 3 — 12-digit Aadhaar number batayein:");
+    }
+    if (draft.step === "aadhaar") {
+      const aadhaar = normalizeAadhaar(text);
+      if (!aadhaar) return sendTelegramMessage(token, chatId, "Invalid Aadhaar. Enter 12 digits (cannot start with 0 or 1):");
+      draft.aadhaar = aadhaar;
+      if (draft.description) {
+        drafts.delete(chatId);
+        return submitVisitFromTelegram(token, chatId, alertChatId, {
+          name: draft.name!,
+          age: draft.age!,
+          aadhaar,
+          description: draft.description
+        });
+      }
+      draft.step = "description";
+      return sendTelegramMessage(token, chatId, "Step 4 — Disease / Takleef likhein (English ya Hinglish me) ya Voice Note 🎤 bhejein:");
+    }
+    if (text.length < 2) return sendTelegramMessage(token, chatId, "Please describe the symptoms (text or voice note):");
+    drafts.delete(chatId);
+    return submitVisitFromTelegram(token, chatId, alertChatId, {
+      name: draft.name!,
+      age: draft.age!,
+      aadhaar: draft.aadhaar!,
+      description: text
+    });
+  };
+
+  const handleVoice = async (chatId: number, voice: TelegramVoice, caption?: string) => {
+    await sendTelegramMessage(token, chatId, "🎤 Listening to voice note…");
+    const audio = await downloadTelegramVoice(token, voice);
+    if (!audio) return sendTelegramMessage(token, chatId, "Could not download voice note. Please try again or type symptoms.");
+
+    const transcribed = await transcribeSymptomAudioWithGemini(audio);
+    if ("error" in transcribed) return sendTelegramMessage(token, chatId, transcribed.error);
+
+    if (caption?.trim()) {
+      const combined = parseTelegramVisit(`${caption.trim()}, ${transcribed.transcript}`);
+      if (!("error" in combined)) {
+        drafts.delete(chatId);
+        return submitVisitFromTelegram(token, chatId, alertChatId, combined);
+      }
+    }
+
+    const active = drafts.get(chatId);
+    if (active?.step === "description") {
+      return advanceDraft(chatId, active, transcribed.transcript);
+    }
+
+    drafts.set(chatId, { step: "name", description: transcribed.transcript });
+    return sendTelegramMessage(
+      token,
+      chatId,
+      `🎤 Heard: "${transcribed.transcript}"\n\nStep 1 — Patient Name / Mareez ka naam batayein:`
+    );
+  };
+
+  const handleMessage = async (msg: NonNullable<TelegramUpdate["message"]>) => {
+    const chatId = msg.chat.id;
+    const voice = msg.voice ?? msg.audio;
+    if (voice) return handleVoice(chatId, voice, msg.caption);
+    if (!msg.text) return;
+
+    const text = msg.text.trim();
+    if (text === "/cancel") {
+      drafts.delete(chatId);
+      return sendTelegramMessage(token, chatId, "Cancelled. Send /new to start again or /help for formats.");
+    }
+    if (text === "/new" || text === "/add") {
+      drafts.set(chatId, { step: "name" });
+      return sendTelegramMessage(token, chatId, "Step 1 — Patient Name / Mareez ka naam batayein:\n(Send /cancel anytime)");
+    }
+    if (text.startsWith("/village")) {
+      const village = text.replace(/^\/village\s*/i, "").trim();
+      if (village.length < 2) return sendTelegramMessage(token, chatId, "Usage: /village Hoskote");
+      await careStore.setState(`tg_village:${chatId}`, village);
+      return sendTelegramMessage(token, chatId, `✅ Default village for this chat set to: ${village}`);
+    }
+    if (text.startsWith("/asha")) {
+      const asha = text.replace(/^\/asha\s*/i, "").trim();
+      if (asha.length < 2) return sendTelegramMessage(token, chatId, "Usage: /asha ASHA-HSK-014");
+      await careStore.setState(`tg_asha:${chatId}`, asha);
+      return sendTelegramMessage(token, chatId, `✅ Default ASHA worker code set to: ${asha}`);
+    }
+    if (text.startsWith("/status")) {
+      const rawAadhaar = text.replace(/^\/status\s*/i, "").trim();
+      if (!rawAadhaar) return sendTelegramMessage(token, chatId, "Usage: /status 234567891234");
+      const status = await careStore.lookupStatusByAadhaar(rawAadhaar);
+      if (!status.ok) return sendTelegramMessage(token, chatId, status.error);
+      const c = status.latest;
+      return sendTelegramMessage(
+        token,
+        chatId,
+        [
+          `📋 Status for ${status.name} (${status.aadhaarMasked} · ${status.village})`,
+          `Condition: ${c.context}`,
+          `Severity: ${c.severityLevel} (${c.severityScore}/10)`,
+          `PHC Status: ${c.referralStatus ?? "In ASHA queue"}${status.queueRank ? ` (Queue #${status.queueRank})` : ""}`,
+          c.followUpDate ? `Follow-up Date: ${c.followUpDate}` : ""
+        ].filter(Boolean).join("\n")
+      );
+    }
+    if (text.startsWith("/start") || text.startsWith("/help")) {
+      drafts.delete(chatId);
+      return sendTelegramMessage(token, chatId, FORMAT_HELP);
+    }
+
+    const active = drafts.get(chatId);
+    if (active) return advanceDraft(chatId, active, text);
+
+    const parsed = parseTelegramVisit(text);
+    if ("error" in parsed) return sendTelegramMessage(token, chatId, parsed.error);
+    return submitVisitFromTelegram(token, chatId, alertChatId, parsed);
+  };
 
   const poll = async () => {
     let offset = Number(await careStore.getState("telegram_offset").catch(() => "0")) || 0;
@@ -100,46 +339,7 @@ export function startTelegramBot() {
         for (const update of data.result ?? []) {
           offset = update.update_id + 1;
           await careStore.setState("telegram_offset", String(offset)).catch(() => {});
-
-          const msg = update.message;
-          if (!msg?.text) continue;
-
-          const parsed = parseTelegramVisit(msg.text);
-          if ("error" in parsed) {
-            await sendTelegramMessage(token, msg.chat.id, parsed.error);
-            continue;
-          }
-
-          const result = await careStore.ingestVisitFromIntake({
-            ...parsed,
-            source: "telegram"
-          });
-
-          const lines = [
-            result.careCase.alertFlagged
-              ? `🚨 ALERT: ${result.careCase.severityLevel} priority (${result.careCase.severityScore}/10)`
-              : `✅ Recorded (${result.careCase.severityLevel} · ${result.careCase.severityScore}/10)`,
-            `Patient: ${result.careCase.name} (${result.careCase.ageLabel})`,
-            `Visit type: ${result.visitType === "follow-up" ? "Follow-up visit (existing Aadhaar)" : "Fresh visit (new patient)"}`,
-            `Triage note: ${result.careCase.triageSummary ?? parsed.description}`,
-            result.careCase.referralId ? "PHC Queue: Sent & ranked by severity." : "ASHA Queue: Added to today's visits."
-          ];
-
-          if (result.credentials) {
-            lines.push(
-              "",
-              "New Patient Portal Credentials:",
-              `Username: ${result.credentials.username}`,
-              `Password: ${result.credentials.password}`
-            );
-          }
-
-          const reply = lines.join("\n");
-          await sendTelegramMessage(token, msg.chat.id, reply);
-
-          if (result.careCase.alertFlagged && alertChatId && alertChatId !== String(msg.chat.id)) {
-            await sendTelegramMessage(token, alertChatId, `🚨 PHC SEVERITY ALERT\n${result.careCase.name} (${result.careCase.ageLabel})\n${parsed.description}\nScore: ${result.careCase.severityScore}/10 (${result.careCase.severityLevel})`);
-          }
+          if (update.message) await handleMessage(update.message);
         }
       } catch (err) {
         console.error("Telegram poll error:", err instanceof Error ? err.message : err);

@@ -132,7 +132,13 @@ async function addEvent(caseId: string, type: CareEvent["type"], text: string, t
   });
 }
 
+let caseUpdateNotifier: ((caseId: string, message: string) => Promise<void>) | undefined;
+
 export const careStore = {
+  setCaseUpdateNotifier(fn: (caseId: string, message: string) => Promise<void>) {
+    caseUpdateNotifier = fn;
+  },
+
   async getState(key: string): Promise<string | undefined> {
     const { data } = await supabase.from("app_state").select("value").eq("key", key).maybeSingle();
     return data?.value;
@@ -312,7 +318,15 @@ export const careStore = {
     return this.getCase(id);
   },
 
-  async ingestVisitFromIntake(input: { name: string; age: number; aadhaar: string; description: string; source: "telegram" | "web" }) {
+  async ingestVisitFromIntake(input: {
+    name: string;
+    age: number;
+    aadhaar: string;
+    description: string;
+    source: "telegram" | "web";
+    village?: string;
+    ashaWorkerId?: string;
+  }) {
     const aadhaar = normalizeAadhaar(input.aadhaar);
     if (!aadhaar) throw new Error("Invalid Aadhaar number (must be 12 digits starting with 2-9)");
 
@@ -350,6 +364,16 @@ export const careStore = {
       });
       if (userErr) throw new Error(userErr.message);
 
+      let linkedAshaId = "asha-sunita";
+      if (input.ashaWorkerId) {
+        const { data: ashaRow } = await supabase
+          .from("asha_workers")
+          .select("id")
+          .or(`id.eq.${input.ashaWorkerId},worker_code.eq.${input.ashaWorkerId}`)
+          .maybeSingle();
+        if (ashaRow) linkedAshaId = ashaRow.id;
+      }
+
       patientId = newId("patient");
       const { error: patErr } = await supabase.from("patients").insert({
         id: patientId,
@@ -357,14 +381,19 @@ export const careStore = {
         patient_code: `PT-TG-${aadhaar.slice(-4)}`,
         age: input.age,
         gender: "Unspecified",
-        village: "Hoskote",
+        village: input.village?.trim() || "Hoskote",
         aadhaar,
-        linked_asha_worker_id: "asha-sunita"
+        linked_asha_worker_id: linkedAshaId
       });
       if (patErr) throw new Error(patErr.message);
     }
 
     const triage = await analyzeSeverityWithGemini({ name: patientName, age: input.age, description: input.description });
+    const rawDesc = input.description.trim();
+    const bilingualContext =
+      triage.englishDescription.toLowerCase() !== triage.hinglishDescription.toLowerCase()
+        ? `${triage.englishDescription} (Hinglish: ${triage.hinglishDescription})`
+        : triage.englishDescription || rawDesc;
     const initials = patientName.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase() || "PT";
     const tone: CareCase["tone"] =
       triage.severityLevel === "Critical" || triage.severityLevel === "High"
@@ -379,7 +408,7 @@ export const careStore = {
       id: caseId,
       patient_id: patientId,
       initials,
-      context: input.description.trim(),
+      context: bilingualContext,
       scheduled_for: nowTime,
       tone,
       tag: visitType === "follow-up" ? "Follow-up visit" : "Fresh visit",
@@ -393,7 +422,7 @@ export const careStore = {
     });
     if (caseErr) throw new Error(caseErr.message);
 
-    await addEvent(caseId, "concern", `${input.source === "telegram" ? "Telegram" : "ASHA"} intake (${visitType}): ${input.description.trim()}.`, nowTime);
+    await addEvent(caseId, "concern", `${input.source === "telegram" ? "Telegram" : "ASHA"} intake (${visitType}): ${bilingualContext}.`, nowTime);
 
     // Every Telegram/triage intake enters the PHC appointment queue ranked by severity.
     const referralId = newId("ref");
@@ -408,7 +437,7 @@ export const careStore = {
     await addEvent(caseId, "referral", `Queued for PHC doctor review (Severity ${triage.severityScore}/10 · ${triage.severityLevel}).`, nowTime);
 
     const careCase = await this.getCase(caseId);
-    return { careCase, visitType, isNewAccount: !existingPatient, credentials };
+    return { careCase, visitType, isNewAccount: !existingPatient, credentials, triage };
   },
 
   async createReferral(caseId: string, facility = "Arogya Mandir, Hoskote", reason = "Review required after field screening") {
@@ -448,6 +477,12 @@ export const careStore = {
       .eq("id", referralId);
     if (error) throw new Error(error.message);
     await addEvent(referral.caseId, "acknowledgement", "PHC accepted the referral and will update the visit.", ackAt);
+
+    const updatedCase = await this.getCase(referral.caseId);
+    void caseUpdateNotifier?.(
+      referral.caseId,
+      `🏥 PHC Update: ${updatedCase.name} (${updatedCase.ageLabel})\nStatus: Received at PHC (${referral.facility})\nNote: Doctor acknowledged this referral.`
+    );
     return getReferralOrThrow(referralId);
   },
 
@@ -462,7 +497,48 @@ export const careStore = {
       .eq("id", ref.id);
     if (error) throw new Error(error.message);
     await addEvent(caseId, "follow-up", `Home visit scheduled for ${date}.`, timeNow());
+
+    const updatedCase = await this.getCase(caseId);
+    void caseUpdateNotifier?.(
+      caseId,
+      `📅 Follow-up Scheduled: ${updatedCase.name} (${updatedCase.ageLabel})\nDate: ${date}\nStatus: Follow-up booked at ${ref.facility}.`
+    );
     return getReferralOrThrow(ref.id);
+  },
+
+  async lookupStatusByAadhaar(rawAadhaar: string) {
+    const aadhaar = normalizeAadhaar(rawAadhaar);
+    if (!aadhaar) return { ok: false as const, error: "Invalid Aadhaar number. Send 12 digits starting with 2–9." };
+
+    const { data: pat } = await supabase
+      .from("patients")
+      .select("id, village, users!inner(full_name)")
+      .eq("aadhaar", aadhaar)
+      .maybeSingle();
+    if (!pat) return { ok: false as const, error: "No patient found for that Aadhaar number." };
+
+    const { data: caseRows } = await supabase
+      .from("care_cases")
+      .select(CASE_SELECT)
+      .eq("patient_id", pat.id)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const latestRow = (caseRows ?? [])[0] as unknown as CaseDbRow | undefined;
+    if (!latestRow) return { ok: false as const, error: "Patient exists, but no visits are logged yet." };
+
+    const latest = toTask(latestRow);
+    const phc = await this.phcDashboard();
+    const queueIndex = phc.queue.findIndex((q) => q.id === latest.id);
+
+    return {
+      ok: true as const,
+      name: (pat.users as unknown as { full_name: string }).full_name,
+      village: pat.village,
+      aadhaarMasked: maskAadhaar(aadhaar),
+      latest,
+      queueRank: queueIndex >= 0 ? queueIndex + 1 : undefined
+    };
   },
 
   async resolveCallbackRequest(requestId: string) {
