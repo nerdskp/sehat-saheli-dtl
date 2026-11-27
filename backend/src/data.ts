@@ -1,3 +1,4 @@
+import { isValidFollowUpDate } from "./follow-up";
 import { randomBytes } from "node:crypto";
 import { hashPassword, newId, supabase, verifyPassword, type SessionUser } from "./supabase";
 import { analyzeSeverityWithGemini, buildPatientCredentials, maskAadhaar, normalizeAadhaar } from "./triage";
@@ -486,10 +487,13 @@ export const careStore = {
     return getReferralOrThrow(referralId);
   },
 
-  async scheduleFollowUp(caseId: string, date = "Friday, 28 Nov") {
+  async scheduleFollowUp(caseId: string, date: string) {
+    if (!isValidFollowUpDate(date)) throw new Error("Invalid follow-up date: choose today or later");
     const row = await getCaseRowOrThrow(caseId);
     const ref = unwrapReferral(row.referrals);
     if (!ref) throw new Error("A follow-up needs a linked referral");
+    if (ref.status === "Follow-up booked") return getReferralOrThrow(ref.id);
+    if (ref.status !== "Received at PHC") throw new Error("Invalid follow-up: PHC must acknowledge the referral first");
 
     const { error } = await supabase
       .from("referrals")

@@ -1,0 +1,104 @@
+/* Shared responsive rules follow the desktop theme so each role stays usable on phones. */
+:where(button, a, input, select, textarea):focus-visible { outline: 3px solid #247c70; outline-offset: 3px; }
+:where(input, select, textarea) { max-width: 100%; font-size: 16px; }
+:where(button):disabled { cursor: not-allowed; opacity: .6; }
+:where(.panel, .patient-card, .task-person, .patient-welcome > div, .case-person > div, .profile-card > div, .focus-avatar > div, .auth-panel, .auth-form-wrap) { min-width: 0; overflow-wrap: anywhere; }
+:where(.task-row, .patient-header, .card-heading, .panel-heading, .case-heading, .section-title) { gap: 12px; }
+:where(.tag, .status, .loop-chip) { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.patient-header button, .asha-card button, .primary-button, .outline-button, .text-button { min-height: 44px; }
+:where(.patient-brand > span, .patient-avatar, .request-check, .asha-person > span, button > svg, .case-disclaimer > svg) { flex-shrink: 0; }
+.auth-form-wrap input { min-width: 0; width: 100%; font-size: 16px; }
+.demo-choice strong { font-size: 14px; }
+.demo-choice small { font-size: 12px; }
+.patient-header { height: auto; min-height: 70px; flex-wrap: wrap; padding-block: 12px; }
+.header-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.patient-welcome { gap: 20px; }
+.patient-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); }
+.patient-card p, .request-list small, .profile-card-patient dd { font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.profile-card-patient dl { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.phc-alert { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; background: white; border: 1px solid #f5d0c8; }
+.phc-alert > div { flex: 1 1 240px; min-width: 0; }
+.phc-task { display: grid; grid-template-columns: 34px minmax(0, 1fr) minmax(140px, auto); }
+.phc-actions { display: grid; justify-items: end; gap: 8px; }
+.follow-up-form { display: grid; gap: 10px; width: 100%; }
+.follow-up-form label { display: grid; gap: 6px; font-size: 14px; text-align: left; }
+.follow-up-form input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid #a6cfc2; border-radius: 8px; padding: 8px; background: white; color: var(--ink); }
+.feedback-banner { margin: 16px auto; padding: 14px 16px; border: 1px solid #e8b4a8; border-radius: 10px; background: #fff2ee; color: #8b3428; overflow-wrap: anywhere; }
+.asha-workspace .feedback-banner, .credentials-banner { margin: 16px clamp(16px, 4vw, 56px); }
+.credentials-banner { display: flex; align-items: start; gap: 12px; padding: 16px; background: var(--color-form-success-paper); }
+.credentials-banner > div { flex: 1; min-width: 0; }
+.route-loading { padding: 24px; text-align: center; }
+.route-loading > div { max-width: 440px; }
+.route-loading button { margin: 12px auto; }
+.asha-workspace .sidebar { overflow-y: auto; overscroll-behavior: contain; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+.asha-workspace .brand-mark { flex-shrink: 0; }
+.asha-workspace .sidebar-bottom { padding-top: 24px; }
+.asha-workspace .topbar { position: sticky; gap: 12px; }
+.asha-workspace .top-actions { margin-left: auto; }
+.asha-workspace .breadcrumbs { min-width: 0; flex-wrap: wrap; }
+.asha-workspace .search-input { width: min(240px, 28vw); min-width: 0; padding: 10px; border: 1px solid var(--color-rule); border-radius: 8px; }
+.asha-workspace .notification-panel { position: absolute; top: calc(100% + 8px); right: 0; width: min(360px, calc(100vw - 32px)); max-height: min(70dvh, 520px); overflow-y: auto; padding: 16px; z-index: 30; display: grid; gap: 10px; }
+.asha-workspace .notification i { display: block; }
+.asha-workspace .task-person { flex: 1; }
+.asha-workspace .task-row > .outline-button { width: auto; flex-shrink: 0; padding-inline: 12px; }
+.asha-workspace .task-meta { flex-shrink: 0; max-width: 40%; }
+.asha-workspace .panel-heading, .asha-workspace .card-heading { flex-wrap: wrap; }
+.asha-workspace .form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.asha-workspace .form-actions > button { flex: 1 1 160px; }
+.sidebar-backdrop { display: none; }
+@media (min-width: 981px) and (max-width: 1200px) {
+  .asha-workspace .queue-layout, .asha-workspace .case-grid { grid-template-columns: minmax(0, 1fr); }
+  .asha-workspace .topbar, .asha-workspace .content { padding-inline: 24px; }
+}
+@media (max-width: 1100px) {
+  .asha-workspace .visit-fields, .asha-workspace .visit-fields-existing { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 980px) {
+  .asha-workspace .sidebar:not(.show) { visibility: hidden; }
+  .asha-workspace .sidebar { height: 100dvh; }
+  .asha-workspace .sidebar-bottom .nav-item { white-space: normal; overflow-wrap: anywhere; }
+  .sidebar-backdrop { display: block; position: fixed; inset: 0; z-index: 9; border: 0; background: rgb(13 44 39 / 45%); }
+  .asha-workspace .topbar.search-open { flex-wrap: wrap; padding-block: 10px; }
+  .asha-workspace .search-open .top-actions { position: static !important; }
+  .asha-workspace .search-input { position: absolute; left: 16px; bottom: 10px; width: calc(100% - 32px); }
+  .asha-workspace .topbar.search-open { padding-bottom: 64px; }
+  .asha-workspace .notification-panel { right: 0; }
+}
+@media (max-width: 900px) {
+  .auth-shell { grid-template-columns: minmax(0, 1fr); }
+  .auth-story { min-height: auto; padding: 28px; }
+  .story-copy { margin: 30px 0 20px; }
+  .story-copy h1 { font-size: 36px; letter-spacing: -1.3px; }
+  .story-flow { display: none; }
+  .story-foot { margin-top: 16px; }
+}
+@media (max-width: 800px) {
+  .patient-grid { grid-template-columns: minmax(0, 1fr); }
+  .phc-task { grid-template-columns: 34px minmax(0, 1fr); }
+  .phc-actions { grid-column: 2; justify-items: stretch; }
+  .phc-actions .tag { justify-self: start; }
+}
+@media (max-width: 640px) {
+  .asha-workspace .visit-fields, .asha-workspace .visit-fields-existing { grid-template-columns: minmax(0, 1fr); }
+  .asha-workspace .task-row { flex-wrap: wrap; }
+  .asha-workspace .task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; max-width: calc(100% - 52px); flex-basis: calc(100% - 52px); margin-left: 52px; text-align: left; }
+  .asha-workspace .task-row > .outline-button { margin-left: 52px !important; }
+  .asha-workspace .task-person { flex-basis: 60%; }
+  .asha-workspace .event { grid-template-columns: 18px minmax(0, 1fr); }
+  .asha-workspace .event time { grid-column: 2; margin-bottom: 12px; }
+  .asha-workspace .case-person { min-width: 0; }
+  .asha-workspace .case-person h1 { font-size: 26px; }
+  .asha-workspace .case-heading { grid-template-columns: minmax(0, 1fr); }
+  .asha-workspace .case-meta { flex-wrap: wrap; gap: 8px; }
+  .asha-workspace .loop-chip { width: fit-content; }
+  .patient-header { padding-inline: 16px; }
+  .profile-card-patient dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .patient-content { padding-bottom: max(32px, env(safe-area-inset-bottom)); }
+  .phc-queue { padding: 16px !important; }
+  .patient-welcome { padding: 24px; }
+  .auth-story { padding: 24px 20px; }
+  .story-copy h1 { font-size: 30px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}

@@ -24,6 +24,30 @@
 - **`/patient`** ([patient/page.tsx](frontend/src/app/patient/page.tsx)):
   - Shows live care plan, triage summary, visit history, ASHA worker contact, and **Request a callback** button.
 
-## Current Status
-- All recent changes are committed on `main` (latest: `f5cbb67 seperate triage`).
-- Servers are currently stopped; run `npm run dev` in `D:\DTL\sehat-saheli-dtl` to start frontend (`:3000`), backend (`:4000`), and Telegram polling.
+## Mobile and reliability update — 27 November 2026
+
+Reviewed GitHub `main` at `00ffbd3` (the UI update after the original `f5cbb67` progress note).
+
+### Completed
+- Responsive login, ASHA, PHC, and patient layouts, including narrow phones and intermediate tablet widths.
+- Full-width mobile search, viewport-sized scrollable notifications, visible queue status/date metadata, wrapped PHC rows, and touch-friendly controls.
+- Mobile navigation backdrop, Escape dismissal, focus trapping/restoration, background scroll locking, and scrollable navigation on short screens.
+- Intake submit locking and visible save errors; new patient credentials remain visible after opening the new care case.
+- PHC and patient load errors can recover without treating every outage as a signed-out session; failed mutations display errors.
+- Explicit follow-up date selection replaces the fixed November date. The backend validates real dates against the Indian calendar and requires PHC acknowledgement.
+- Patient callback buttons disable while sending and while an open callback is present.
+- Telegram parsing rejects malformed ages, missing fields and oversized records; external requests have timeouts and intake failures produce a reply.
+- Gemini scores determine their matching severity labels and alert flags consistently.
+- Updated Supabase/Telegram setup documentation and phone-on-LAN API configuration.
+
+### Verification
+- TypeScript checks and production build pass for both workspaces.
+- Four backend regression tests pass.
+- Eleven mocked browser tests pass, covering 320, 375, 390, 768, 820, 1024 and 1440px widths, menu keyboard/backdrop behavior, Kannada navigation, credentials, callbacks, and follow-up submission/error handling.
+- ASHA and PHC mobile screenshots visually reviewed.
+
+### Local checkout and remaining integration verification
+- Current checkout: `/Users/surya/dtl/sehat-saheli-dtl`.
+- Configure the environment files using README.md, then run `npm run dev` from the repository root.
+- This fresh checkout has no live Supabase, Telegram or Gemini credentials. Browser checks use fixtures; live bot delivery, database persistence and real AI responses still need verification with the configured services.
+- Existing prototype limits remain: demo passwords, Aadhaar-derived credentials, broad staff access, and non-transactional Telegram intake. Continue using fictional records.

@@ -23,9 +23,10 @@ import {
   UsersRound,
   X
 } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   careApi,
+  ApiError,
   type AshaProfileResponse,
   type CallbackRequest,
   type CareAction,
@@ -113,9 +114,58 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
   const [showNotifications, setShowNotifications] = useState(false);
   const [calendarMode, setCalendarMode] = useState(false);
   const t = copy[lang];
+  const [error, setError] = useState("");
+  const [syncError, setSyncError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [followUpDate, setFollowUpDate] = useState("");
+  const sidebarRef = useRef<HTMLElement>(null);
+  const menuRef = useRef<HTMLButtonElement>(null);
+  const mutationLock = useRef(false);
+
+  const reportSyncError = (cause: unknown) => {
+    if (cause instanceof ApiError && [401, 403].includes(cause.status)) onSignOut();
+    else setSyncError("Could not sync care records. Check your connection; retrying automatically.");
+  };
+
+  const runAction = async (action: () => Promise<void>) => {
+    if (mutationLock.current) return;
+    mutationLock.current = true;
+    setSaving(true);
+    setError("");
+    try { await action(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save. Please try again."); }
+    finally { mutationLock.current = false; setSaving(false); }
+  };
+
+  useEffect(() => {
+    if (!showMenu) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    sidebarRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowMenu(false);
+      if (event.key !== "Tab") return;
+      const buttons = sidebarRef.current?.querySelectorAll<HTMLButtonElement>("button");
+      if (!buttons?.length) return;
+      const first = buttons[0], last = buttons[buttons.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    const media = window.matchMedia("(min-width: 981px)");
+    const onResize = () => { if (media.matches) setShowMenu(false); };
+    document.addEventListener("keydown", onKey);
+    media.addEventListener("change", onResize);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKey);
+      media.removeEventListener("change", onResize);
+      menuRef.current?.focus();
+    };
+  }, [showMenu]);
 
   const loadDashboard = async () => {
     const [dashboard, profileRes] = await Promise.all([careApi.dashboard(token), careApi.ashaProfile(token)]);
+    setSyncError("");
     setTasks(dashboard.tasks);
     setStatus(dashboard.focusStatus);
     setGreeting(dashboard.greeting);
@@ -130,12 +180,12 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
   useEffect(() => {
     let active = true;
     loadDashboard()
-      .catch(() => {})
+      .catch(reportSyncError)
       .finally(() => {
         if (active) setLoading(false);
       });
     const timer = window.setInterval(() => {
-      loadDashboard().catch(() => {});
+      loadDashboard().catch(reportSyncError);
     }, 5000);
     return () => {
       active = false;
@@ -174,7 +224,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
           setAnswer(detail.action ?? null);
           if (detail.referral) setStatus(detail.referral.status);
         })
-        .catch(() => {});
+        .catch(reportSyncError);
     fetchCase();
     const timer = window.setInterval(fetchCase, 5000);
     return () => {
@@ -190,7 +240,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
 
   const scheduleFollowUp = async () => {
     if (!activeTask) return;
-    const referral = await careApi.scheduleFollowUp(token, activeTask.id);
+    const referral = await careApi.scheduleFollowUp(token, activeTask.id, followUpDate);
     setStatus(referral.status);
     const [detail] = await Promise.all([careApi.getCase(token, activeTask.id), loadDashboard()]);
     setCaseDetail(detail);
@@ -198,14 +248,17 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
 
   const selectAction = async (choice: CareAction) => {
     if (!activeTask) return;
-    setAnswer(choice);
     const updated = await careApi.recordAction(token, activeTask.id, choice);
     setCaseDetail(updated);
-    await loadDashboard();
+    setAnswer(updated.action ?? null);
+    await loadDashboard().catch(reportSyncError);
   };
 
   const createNewCase = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (mutationLock.current) return;
+    mutationLock.current = true;
+    setSaving(true);
     setIntakeError("");
     try {
       if (intakeMode === "aadhaar") {
@@ -216,7 +269,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
           aadhaar: intakeAadhaar.trim(),
           description: newContext.trim()
         });
-        await loadDashboard();
+        setTasks((current) => [result.careCase, ...current.filter((task) => task.id !== result.careCase.id)]);
         setShowNewCase(false);
         setIntakeName("");
         setIntakeAge("");
@@ -226,45 +279,43 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
         setCaseDetail(result.careCase);
         setSelectedCaseId(result.careCase.id);
         setView("case");
+        await loadDashboard().catch(reportSyncError);
         return;
       }
       if (!newPatientId || !newContext.trim()) return;
       const created = await careApi.createCase(token, { patientId: newPatientId, context: newContext.trim(), tone: newTone });
-      await loadDashboard();
+      setTasks((current) => [created, ...current]);
       setShowNewCase(false);
       setNewContext("");
       setCaseDetail(created);
       setSelectedCaseId(created.id);
       setView("case");
+      await loadDashboard().catch(reportSyncError);
     } catch (err) {
       setIntakeError(err instanceof Error ? err.message : "Could not record visit");
+    } finally {
+      mutationLock.current = false;
+      setSaving(false);
     }
   };
 
   const sendReferral = async () => {
     if (!activeTask) return;
-    try {
-      const updated = await careApi.createReferral(token, activeTask.id, { reason: `${activeTask.context} — facility review requested` });
-      setCaseDetail(updated);
-      if (updated.referral) setStatus(updated.referral.status);
-      await loadDashboard();
-    } catch {
-      // Ignore transient errors.
-    }
+    const updated = await careApi.createReferral(token, activeTask.id, { reason: `${activeTask.context.slice(0, 150)} — facility review requested` });
+    setCaseDetail(updated);
+    if (updated.referral) setStatus(updated.referral.status);
+    await loadDashboard().catch(reportSyncError);
   };
 
   const markCallbackDone = async (requestId: string) => {
-    try {
-      await careApi.resolveCallback(token, requestId);
-      setCallbacks((current) => current.filter((item) => item.id !== requestId));
-    } catch {
-      // Ignore if offline.
-    }
+    await careApi.resolveCallback(token, requestId);
+    setCallbacks((current) => current.filter((item) => item.id !== requestId));
   };
 
   return (
     <main className="shell asha-workspace">
-      <aside className={`sidebar ${showMenu ? "show" : ""}`}>
+      {showMenu && <button type="button" className="sidebar-backdrop" onClick={() => setShowMenu(false)} aria-label="Dismiss navigation" tabIndex={-1} />}
+      <aside id="main-navigation" ref={sidebarRef} className={`sidebar ${showMenu ? "show" : ""}`} role={showMenu ? "dialog" : undefined} aria-modal={showMenu || undefined} aria-label="Main navigation">
         <div className="brand">
           <div className="brand-mark"><HeartPulse size={20} strokeWidth={2.8} /></div>
           <div>
@@ -297,9 +348,9 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
         </div>
       </aside>
 
-      <section className="app-area">
-        <header className="topbar">
-          <button type="button" className="menu-button icon-button" onClick={() => setShowMenu(true)} aria-label="Open menu"><Menu size={22} /></button>
+      <section className="app-area" inert={showMenu}>
+        <header className={`topbar ${showSearch ? "search-open" : ""}`}>
+          <button type="button" ref={menuRef} aria-expanded={showMenu} aria-controls="main-navigation" className="menu-button icon-button" onClick={() => setShowMenu(true)} aria-label="Open menu"><Menu size={22} /></button>
           <div className="breadcrumbs"><span>{t.fieldCare}</span><ChevronRight size={14} /><strong>{view === "queue" ? t.queue : view === "case" ? t.cases : view === "households" ? t.households : t.howItWorks}</strong></div>
           <div className="top-actions" style={{ position: "relative" }}>
             {showSearch && (
@@ -312,13 +363,13 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                 }}
                 placeholder="Search patient, ward, symptom…"
                 aria-label="Search care cases"
-                style={{ height: 44, width: 240 }}
+                className="search-input"
               />
             )}
             <button
               type="button"
               className="icon-button"
-              aria-label="Search"
+              aria-label={showSearch ? "Close search" : "Search"} aria-expanded={showSearch}
               onClick={() => {
                 setShowNotifications(false);
                 if (showSearch) {
@@ -335,8 +386,8 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
             <button
               type="button"
               className="icon-button notification"
-              aria-label="Notifications"
-              onClick={() => setShowNotifications((open) => !open)}
+              aria-label="Notifications" aria-expanded={showNotifications}
+              onClick={() => { setShowSearch(false); setSearchQuery(""); setShowNotifications((open) => !open); }}
             >
               <BellRing size={19} />
               {notificationCount > 0 && <i />}
@@ -345,17 +396,8 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
 
             {showNotifications && (
               <div
-                className="panel"
-                style={{
-                  position: "absolute",
-                  top: 48,
-                  right: 0,
-                  width: 320,
-                  padding: 16,
-                  zIndex: 30,
-                  display: "grid",
-                  gap: 10
-                }}
+                className="panel notification-panel"
+                aria-label="Alerts and calls"
               >
                 <div className="panel-heading" style={{ alignItems: "center" }}>
                   <div>
@@ -391,7 +433,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                           <strong>{cb.patientName}</strong>
                           <span>{cb.requestType}, {cb.village}</span>
                         </div>
-                        <button type="button" className="text-button" style={{ marginLeft: "auto" }} onClick={() => markCallbackDone(cb.id)}>Done</button>
+                        <button type="button" className="text-button" style={{ marginLeft: "auto" }} disabled={saving} onClick={() => void runAction(() => markCallbackDone(cb.id))}>Done</button>
                       </div>
                     ))}
                   </div>
@@ -400,6 +442,11 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
             )}
           </div>
         </header>
+        {(error || syncError) && <div className="feedback-banner" role="alert">{error || syncError}</div>}
+        {newCreds && <div className="panel credentials-banner" role="status">
+          <div><strong>New patient account created for {newCreds.name}</strong><p>Username: <code>{newCreds.username}</code><br />Password: <code>{newCreds.password}</code></p></div>
+          <button type="button" className="icon-button" onClick={() => setNewCreds(null)} aria-label="Dismiss credentials"><X size={16} /></button>
+        </div>}
 
         {view === "queue" && (
           <section className="content queue-view">
@@ -416,17 +463,18 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                 </div>
                 {intakeMode === "aadhaar" ? (
                   <div className="visit-fields">
-                    <label htmlFor="intake-name">Patient name<input id="intake-name" name="name" autoComplete="name" value={intakeName} onChange={(e) => setIntakeName(e.target.value)} required /></label>
+                    <label htmlFor="intake-name">Patient name<input id="intake-name" name="name" minLength={2} maxLength={100} autoComplete="name" value={intakeName} onChange={(e) => setIntakeName(e.target.value)} required /></label>
                     <label htmlFor="intake-age">Age<input id="intake-age" name="age" type="number" inputMode="numeric" min={0} max={120} value={intakeAge} onChange={(e) => setIntakeAge(e.target.value)} required /></label>
-                    <label htmlFor="intake-aadhaar">12-digit Aadhaar<input id="intake-aadhaar" name="aadhaar" inputMode="numeric" autoComplete="off" value={intakeAadhaar} onChange={(e) => setIntakeAadhaar(e.target.value)} required /></label>
-                    <label htmlFor="intake-context">Reason for visit<input id="intake-context" name="reason" value={newContext} onChange={(e) => setNewContext(e.target.value)} required /></label>
+                    <label htmlFor="intake-aadhaar">12-digit Aadhaar<input id="intake-aadhaar" name="aadhaar" inputMode="numeric" autoComplete="off" pattern="[2-9][0-9]{11}" maxLength={12} title="Enter 12 digits, starting with 2–9" value={intakeAadhaar} onChange={(e) => setIntakeAadhaar(e.target.value)} required /></label>
+                    <label htmlFor="intake-context">Reason for visit<input id="intake-context" name="reason" minLength={2} maxLength={intakeMode === "aadhaar" ? 300 : 160} value={newContext} onChange={(e) => setNewContext(e.target.value)} required /></label>
                   </div>
                 ) : (
                   <div className="visit-fields visit-fields-existing">
-                    <label htmlFor="existing-patient">Patient<select id="existing-patient" name="patient" value={newPatientId} onChange={(e) => setNewPatientId(e.target.value)} required>
+                    <label htmlFor="existing-patient">Patient<select id="existing-patient" name="patient" value={newPatientId} disabled={!patients.length} onChange={(e) => setNewPatientId(e.target.value)} required>
+                      {!patients.length && <option value="">No patients yet — use Aadhaar intake</option>}
                       {patients.map((p) => <option key={p.id} value={p.id}>{p.fullName} ({p.village})</option>)}
                     </select></label>
-                    <label htmlFor="existing-context">Reason for visit<input id="existing-context" name="reason" value={newContext} onChange={(e) => setNewContext(e.target.value)} required /></label>
+                    <label htmlFor="existing-context">Reason for visit<input id="existing-context" name="reason" minLength={2} maxLength={160} value={newContext} onChange={(e) => setNewContext(e.target.value)} required /></label>
                     <label htmlFor="visit-type">Visit type<select id="visit-type" name="visitType" value={newTone} onChange={(e) => setNewTone(e.target.value as CareTask["tone"])}>
                       <option value="warm">Routine (Warm)</option>
                       <option value="urgent">Urgent</option>
@@ -436,22 +484,13 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                   </div>
                 )}
                 {intakeError && <p className="auth-error">{intakeError}</p>}
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <div className="form-actions">
                   <button type="button" className="outline-button" onClick={() => setShowNewCase(false)}>Cancel</button>
-                  <button type="submit" className="primary-button">Analyze &amp; save visit</button>
+                  <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving visit…" : "Analyze & save visit"}</button>
                 </div>
               </form>
             )}
 
-            {newCreds && (
-              <div className="panel" style={{ padding: 16, marginBottom: 20, background: "var(--color-form-success-paper)", borderColor: "var(--color-form-success-edge)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <strong>New Patient Account Created for {newCreds.name}</strong>
-                  <div style={{ fontSize: 14, marginTop: 4 }}>Username: <code>{newCreds.username}</code>. Password: <code>{newCreds.password}</code></div>
-                </div>
-                <button type="button" className="icon-button" onClick={() => setNewCreds(null)} aria-label="Dismiss"><X size={16} /></button>
-              </div>
-            )}
 
             {callbacks.length > 0 && (
               <section className="panel" style={{ padding: 18, marginBottom: 20 }}>
@@ -460,7 +499,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                   {callbacks.map((cb) => (
                     <div key={cb.id} className="task-row" style={{ cursor: "default" }}>
                       <div className="task-person"><strong>{cb.patientName}</strong><span>{cb.requestType}, {cb.village}</span></div>
-                      <button type="button" className="outline-button" style={{ marginLeft: "auto" }} onClick={() => markCallbackDone(cb.id)}><Check size={15} />Mark called</button>
+                      <button type="button" className="outline-button" style={{ marginLeft: "auto" }} disabled={saving} onClick={() => void runAction(() => markCallbackDone(cb.id))}><Check size={15} />Mark called</button>
                     </div>
                   ))}
                 </div>
@@ -570,7 +609,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                     </div>
 
                     <div style={{ display: "grid", gap: 12, padding: 16, borderRadius: 12, background: activeTask.alertFlagged ? "var(--color-alert-paper)" : "var(--color-panel-paper)", border: `1px solid ${activeTask.alertFlagged ? "var(--color-alert-edge)" : "var(--color-panel-edge)"}` }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "var(--color-ink-subtle)" }}>
+                      <div className="case-meta" style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: "var(--color-ink-subtle)" }}>
                         <span>Source: <strong>{activeTask.source === "telegram" ? "Telegram" : "Web"}</strong></span>
                         <span>Recorded: <strong>{activeTask.time}</strong></span>
                       </div>
@@ -592,7 +631,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                             key={choice}
                             type="button"
                             className={answer === choice ? "choice selected" : "choice"}
-                            onClick={() => selectAction(choice)}
+                            disabled={saving} onClick={() => void runAction(() => selectAction(choice))}
                           >
                             {answer === choice && <Check size={15} />}
                             {choice}
@@ -612,7 +651,7 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                       ) : !caseDetail.referral ? (
                         <>
                           <p className="subheading" style={{ marginBottom: 12 }}>No referral has been sent yet.</p>
-                          <button className="primary-button compact" onClick={sendReferral}><Send size={15} />Send referral to PHC</button>
+                          <button className="primary-button compact" disabled={saving} onClick={() => void runAction(sendReferral)}><Send size={15} />Send referral to PHC</button>
                         </>
                       ) : (
                         <>
@@ -645,7 +684,10 @@ export default function AshaWorkspace({ token, onSignOut }: { token: string; onS
                           <p className="empty-request">{caseDetail ? "No updates yet." : "Loading care history…"}</p>
                         )}
                       </div>
-                      {caseDetail?.referral?.status === "Received at PHC" && <button type="button" className="primary-button compact" onClick={scheduleFollowUp}><PhoneCall size={16} />Schedule return visit</button>}
+                      {caseDetail?.referral?.status === "Received at PHC" && <form className="follow-up-form" onSubmit={(event) => { event.preventDefault(); void runAction(scheduleFollowUp); }}>
+                        <label>Return visit date<input type="date" required value={followUpDate} onChange={(event) => setFollowUpDate(event.target.value)} /></label>
+                        <button type="submit" disabled={saving} className="primary-button compact"><PhoneCall size={16} />Schedule return visit</button>
+                      </form>}
                       {caseDetail?.referral?.status === "Follow-up booked" && <div className="success-banner"><Check size={17} /><div><strong>Follow-up scheduled</strong><span>{caseDetail.referral.followUpDate ?? "Booked"}</span></div></div>}
                     </section>
                   </aside>

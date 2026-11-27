@@ -56,14 +56,14 @@ export default function LoginPage() {
       <section className="auth-panel">
         <div className="auth-form-wrap"><p className="eyebrow">SECURE DEMO ACCESS</p><h2>Welcome back</h2><p className="auth-subtitle">Choose a demo profile or sign in with the account details provided.</p>
           <div className="demo-choices">
-            <button type="button" className={selectedRole === "asha" ? "demo-choice selected" : "demo-choice"} onClick={() => selectRole("asha")}><span className="choice-icon asha"><Stethoscope size={17} /></span><span><strong>ASHA worker</strong><small>Sign in to /asha workspace</small></span></button>
-            <button type="button" className={selectedRole === "phc" ? "demo-choice selected" : "demo-choice"} onClick={() => selectRole("phc")}><span className="choice-icon asha"><HeartPulse size={17} /></span><span><strong>PHC doctor</strong><small>Sign in to /phc queue</small></span></button>
-            <button type="button" className={selectedRole === "patient" ? "demo-choice selected" : "demo-choice"} onClick={() => selectRole("patient")}><span className="choice-icon patient"><UserRound size={17} /></span><span><strong>Patient</strong><small>Enter portal credentials</small></span></button>
+            <button type="button" aria-pressed={selectedRole === "asha"} className={selectedRole === "asha" ? "demo-choice selected" : "demo-choice"} onClick={() => selectRole("asha")}><span className="choice-icon asha"><Stethoscope size={17} /></span><span><strong>ASHA worker</strong><small>Open your care workspace</small></span></button>
+            <button type="button" aria-pressed={selectedRole === "phc"} className={selectedRole === "phc" ? "demo-choice selected" : "demo-choice"} onClick={() => selectRole("phc")}><span className="choice-icon asha"><HeartPulse size={17} /></span><span><strong>PHC doctor</strong><small>Review the patient queue</small></span></button>
+            <button type="button" aria-pressed={selectedRole === "patient"} className={selectedRole === "patient" ? "demo-choice selected" : "demo-choice"} onClick={() => selectRole("patient")}><span className="choice-icon patient"><UserRound size={17} /></span><span><strong>Patient</strong><small>Enter portal credentials</small></span></button>
           </div>
           <form onSubmit={submit}>
-            <label>Username<input value={username} onChange={(event) => setUsername(event.target.value)} placeholder={selectedRole === "patient" ? "e.g. satvik" : "Enter username"} autoComplete="username" required /></label>
+            <label>Username<input value={username} onChange={(event) => setUsername(event.target.value)} placeholder={selectedRole === "patient" ? "e.g. satvik" : "Enter username"} autoComplete="username" autoCapitalize="none" autoCorrect="off" required /></label>
             <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder={selectedRole === "patient" ? "e.g. SAT1234" : "Enter password"} autoComplete="current-password" required /></label>
-            {error && <p className="auth-error">{error}</p>}
+            {error && <p className="auth-error" role="alert">{error}</p>}
             <button className="auth-submit" disabled={loading}>{loading ? "Signing in…" : <><LockKeyhole size={17} />Sign in securely</>}</button>
           </form>
           <p className="demo-note">Staff accounts: <code>sunita.asha</code> / <code>dr.phc</code> (<code>demo123</code>) · Patients use Telegram-issued credentials.</p>

@@ -1,5 +1,8 @@
 import { careStore } from "./data";
+import { FORMAT_HELP, parseTelegramVisit, type ParsedVisit } from "./telegram-parser";
 import { normalizeAadhaar, transcribeSymptomAudioWithGemini } from "./triage";
+
+export { parseTelegramVisit } from "./telegram-parser";
 
 interface TelegramVoice {
   file_id: string;
@@ -18,14 +21,6 @@ interface TelegramUpdate {
   };
 }
 
-interface ParsedVisit {
-  name: string;
-  age: number;
-  aadhaar: string;
-  description: string;
-  village?: string;
-}
-
 interface GuidedDraft {
   step: "name" | "age" | "aadhaar" | "description";
   name?: string;
@@ -33,76 +28,15 @@ interface GuidedDraft {
   aadhaar?: string;
   description?: string;
 }
-
-const FORMAT_HELP = [
-  "Sehat Saheli Bot — Commands & Formats:",
-  "",
-  "Guided intake: send /new (or send a voice note 🎤)",
-  "Check patient status: /status <12-digit Aadhaar>",
-  "Set default village/ASHA: /village <name> | /asha <worker_code>",
-  "Cancel current step: /cancel",
-  "",
-  "Or send all details in 1 message (English or Hinglish):",
-  "Satvik, 6, 234567891234, High fever since 2 days",
-  "Satvik, 6, 234567891234, 2 din se tez bukhar aur khansi hai",
-  "",
-  "Labeled format:",
-  "Name: Satvik",
-  "Age: 6",
-  "Aadhaar: 234567891234",
-  "Disease: 2 din se tez bukhar aur khansi hai"
-].join("\n");
-
-export function parseTelegramVisit(text: string): ParsedVisit | { error: string } {
-  const trimmed = text.trim();
-  if (!trimmed || trimmed.startsWith("/start") || trimmed.startsWith("/help")) {
-    return { error: FORMAT_HELP };
-  }
-
-  let name = "";
-  let ageRaw = "";
-  let aadhaarRaw = "";
-  let description = "";
-  let village: string | undefined;
-
-  if (/(name|naam)\s*:/i.test(trimmed) && /(age|umar|umr)\s*:/i.test(trimmed)) {
-    for (const line of trimmed.split(/\r?\n/)) {
-      const match = line.match(/^([a-zA-Z\s]+):\s*(.+)$/);
-      if (!match) continue;
-      const key = match[1].trim().toLowerCase();
-      const val = match[2].trim();
-      if (key === "name" || key === "naam") name = val;
-      else if (key === "age" || key === "umar" || key === "umr") ageRaw = val;
-      else if (key.startsWith("aadhar") || key.startsWith("aadhaar")) aadhaarRaw = val;
-      else if (key === "village" || key === "gaon") village = val;
-      else if (["disease", "symptoms", "symptom", "description", "visit", "issue", "bimari", "takleef", "lakshan"].includes(key)) description = val;
-    }
-  } else {
-    const parts = trimmed.split(trimmed.includes("|") ? "|" : ",").map((part) => part.trim()).filter(Boolean);
-    if (parts.length < 4) {
-      return { error: `Could not read all 4 fields (Name, Age, Aadhaar, Disease).\n\n${FORMAT_HELP}` };
-    }
-    [name, ageRaw, aadhaarRaw] = parts;
-    description = parts.slice(3).join(", ");
-  }
-
-  const age = Number.parseInt(ageRaw, 10);
-  const aadhaar = normalizeAadhaar(aadhaarRaw);
-
-  if (!name || name.length < 2) return { error: `Invalid patient name.\n\n${FORMAT_HELP}` };
-  if (!Number.isFinite(age) || age < 0 || age > 120) return { error: `Invalid age "${ageRaw}". Enter years between 0 and 120.` };
-  if (!aadhaar) return { error: "Invalid Aadhaar number. It must be 12 digits and cannot start with 0 or 1." };
-  if (!description || description.length < 2) return { error: "Please include the disease or symptom description." };
-
-  return { name, age, aadhaar, description, village };
-}
-
 async function sendTelegramMessage(token: string, chatId: number | string, text: string) {
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    signal: AbortSignal.timeout(15000),
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, text })
-  }).catch(() => {});
+  });
+  const result = await response.json() as { ok?: boolean };
+  if (!response.ok || !result.ok) throw new Error("Telegram could not deliver a message");
 }
 
 async function downloadTelegramVoice(token: string, voice: TelegramVoice): Promise<{ base64: string; mimeType: string } | null> {
@@ -133,15 +67,21 @@ async function submitVisitFromTelegram(
     careStore.getState(`tg_asha:${chatId}`)
   ]);
 
-  const result = await careStore.ingestVisitFromIntake({
-    name: visit.name,
-    age: visit.age,
-    aadhaar: visit.aadhaar,
-    description: visit.description,
-    village: savedVillage,
-    ashaWorkerId: savedAsha,
-    source: "telegram"
-  });
+  let result;
+  try {
+    result = await careStore.ingestVisitFromIntake({
+      name: visit.name,
+      age: visit.age,
+      aadhaar: visit.aadhaar,
+      description: visit.description,
+      village: savedVillage,
+      ashaWorkerId: savedAsha,
+      source: "telegram"
+    });
+  } catch {
+    await sendTelegramMessage(token, chatId, "We could not finish recording this visit. Please ask your ASHA worker to check the care record before resending.");
+    return;
+  }
 
   // Persist chat ID so PHC acknowledgements and follow-up bookings notify this chat.
   await careStore.setState(`case_tg_chat:${result.careCase.id}`, String(chatId)).catch(() => {});
@@ -329,7 +269,8 @@ export function startTelegramBot() {
     while (!stopped) {
       try {
         const res = await fetch(
-          `https://api.telegram.org/bot${token}/getUpdates?offset=${offset}&timeout=20`
+          `https://api.telegram.org/bot${token}/getUpdates?offset=${offset}&timeout=20`,
+          { signal: AbortSignal.timeout(30000) }
         );
         if (!res.ok) {
           await new Promise((r) => setTimeout(r, 3000));
@@ -341,8 +282,8 @@ export function startTelegramBot() {
           await careStore.setState("telegram_offset", String(offset)).catch(() => {});
           if (update.message) await handleMessage(update.message);
         }
-      } catch (err) {
-        console.error("Telegram poll error:", err instanceof Error ? err.message : err);
+      } catch {
+        console.error("Telegram polling or message delivery failed; retrying.");
         await new Promise((r) => setTimeout(r, 4000));
       }
     }

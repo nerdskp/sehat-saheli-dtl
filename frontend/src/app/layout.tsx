@@ -3,6 +3,7 @@ import "./globals.css";
 import "./tokens.css";
 import "./base.css";
 import "./asha-workspace.css";
+import "./responsive.css";
 
 export const metadata: Metadata = {
   title: "Sehat Saheli | Care Loop",

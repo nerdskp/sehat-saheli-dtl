@@ -87,6 +87,7 @@ export async function analyzeSeverityWithGemini(input: {
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
       {
         method: "POST",
+        signal: AbortSignal.timeout(20000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
@@ -103,17 +104,15 @@ export async function analyzeSeverityWithGemini(input: {
     if (!rawText) return fallbackTriage(input.age, input.description);
 
     const parsed = JSON.parse(rawText) as Partial<TriageResult>;
-    const score = Math.min(10, Math.max(1, Math.round(Number(parsed.severityScore) || 5)));
-    const validLevels: SeverityLevel[] = ["Low", "Moderate", "High", "Critical"];
+    const rawScore = Number(parsed.severityScore);
+    if (!Number.isFinite(rawScore) || rawScore < 1 || rawScore > 10) return fallbackTriage(input.age, input.description);
+    const score = Math.round(rawScore);
     const validActions: CareAction[] = ["Facility review needed", "Routine follow-up", "Need ANM guidance"];
-
-    const severityLevel: SeverityLevel = validLevels.includes(parsed.severityLevel as SeverityLevel)
-      ? (parsed.severityLevel as SeverityLevel)
-      : score >= 8 ? "Critical" : score >= 6 ? "High" : score >= 4 ? "Moderate" : "Low";
-    const alertFlagged = typeof parsed.alertFlagged === "boolean" ? parsed.alertFlagged : score >= 7;
-    const recommendedAction: CareAction = validActions.includes(parsed.recommendedAction as CareAction)
-      ? (parsed.recommendedAction as CareAction)
-      : alertFlagged ? "Facility review needed" : "Routine follow-up";
+    // Keep queue ordering, badge and alert consistent even when model fields disagree.
+    const severityLevel: SeverityLevel = score >= 8 ? "Critical" : score >= 6 ? "High" : score >= 4 ? "Moderate" : "Low";
+    const alertFlagged = score >= 7;
+    const recommendedAction: CareAction = alertFlagged ? "Facility review needed"
+      : validActions.includes(parsed.recommendedAction as CareAction) ? parsed.recommendedAction as CareAction : "Routine follow-up";
     const fallbackDesc = input.description.trim();
 
     return {
